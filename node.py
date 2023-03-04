@@ -1,39 +1,56 @@
-class Node:
-    def __init__(self, data):
-        self.data = data
-        self.next = None
-        self.prev = None
+from typing import Optional
 
 class recipeList:
-    def __init__(self, recipe):
-        self.head = Node(recipe[0])
-        self.curr = self.head
-        self.recipe = self.head
-        for i in range(1, len(recipe)):
-            self.recipe.next = Node(recipe[i])
-            self.recipe.next.prev = self.recipe
-            self.recipe = self.recipe.next
-    def get_prev(self):
-        if self.curr.prev:
-            self.curr = self.curr.prev
-            print(self.curr.data)
+    def __init__(self, recipe: list):
+        self.recipe = recipe
+        self.index = 0
+    def get_all(self):
+        return self.recipe
+    def get_current(self):
+        return self.recipe[self.index]
+    def get_nth_prev(self, n: Optional[int] = None):
+        if n:
+            if self.index - n >= 0:
+                self.index = self.index - n
+                return self.recipe[self.index]
+            else:
+                print("Request is out of range!")
         else:
-            print("This is the first instruction in the recipe!")
-    def get_next(self):
-        if self.curr.next:
-            self.curr = self.curr.next
-            print(self.curr.data)
+            if self.index - 1 >= 0:
+                self.index = self.index - 1
+                return self.recipe[self.index]
+            else:
+                print("Request is out of range!")
+    def get_nth_next(self, n: Optional[int] = None):
+        if n:
+            if self.index + n <= len(self.recipe)-1:
+                self.index = self.index + n
+                return self.recipe[self.index]
+            else:
+                print("Request is out of range!")
         else:
-            print("This is the last instruction in the recipe!")
+            if self.index + 1 <= len(self.recipe)-1:
+                self.index = self.index + 1
+                return self.recipe[self.index]
+            else:
+                print("Request is out of range!")
+    def get_nth(self, n: None):
+        if n:
+            if 0 <= n - 1 <= len(self.recipe)-1:
+                self.index = n - 1
+                return self.recipe[self.index]
     
 
-recipe = ["a", "b", "c"]
+# recipe = ["a", "b", "c", "d"]
 
-example = recipeList(recipe)
-print("Current node: " + example.curr.data)
-example.get_prev()
-example.get_next()
-example.get_next()
-example.get_prev()
-example.get_next()
-example.get_next()
+# example = recipeList(recipe)
+# # print(example.get_all())
+# # print(example.get_current())
+# print(example.get_nth_prev())
+# print(example.get_nth_next(5))
+# print(example.get_nth_next(3))
+# # print(example.get_current())
+# print(example.get_nth_prev())
+# print(example.get_nth_prev(2))
+# # print(example.get_current())
+# print(example.get_nth(3))

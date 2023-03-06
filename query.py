@@ -13,18 +13,20 @@ def get_substitute(query:str):
     url = "http://www.google.com/search?q=" + query + "&start=" + str((0))
     driver.get(url)
     query_html = BeautifulSoup(driver.page_source, 'html.parser')
-    results = query_html.find_all('li', class_="TrT0Xe")
+    results = query_html.find('div', id="search")
+    results = results.find('div', class_="v7W49e")
+    results = results.find('div', class_="MjjYud")
+    first_attempt = results.find_all('li', class_="TrT0Xe")
     substitutes = []
-    if not results:
-        results = query_html.find('div', class_="MjjYud")
-        if not results:
+    if not first_attempt:
+        second_attempt = results.find('span', class_="ILfuVd")
+        if not second_attempt:
+            third_attempt = results.find_all('span', {"class": None, "id": None, "data-ved": None})
+            substitutes.append(third_attempt[-1].text)
             return substitutes
-        results = results.find_all('span')
-        for result in results:
-            if "." in result.text:
-                substitutes.append(result.text)
+        substitutes.append(second_attempt.text)
         return substitutes
-    for result in results:
+    for result in first_attempt:
         result = result.text.split('.')[0]
         substitutes.append(result)
     return substitutes
@@ -37,4 +39,4 @@ def get_url(query:str):
 
 
 # UNCOMMENT TO TEST
-# print(get_substitute("what can i substitute for flour"))
+# print(get_substitute("what can i use instead of eggs"))

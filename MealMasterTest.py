@@ -11,7 +11,7 @@ import json
 import requests
 import transformers as tra
 import re
-# import steps_parser
+import steps_parser
 
 ## FUNCTIONS FOR WEBSCRAPING
 def get_soup(url:str):
@@ -333,13 +333,13 @@ class RecipeBot():
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
         
         # REPLACE SELF.STEPS -- ETHAN
-        # self.steps_data = steps_parser.doParsing(combineSteps(self.steps), self.ingredients)
+        self.steps_data = steps_parser.doParsing(combineSteps(self.steps), self.ingredients)
 
-        # temp = []
-        # for step_key in self.steps_data.keys():
-        #     step = self.steps_data[step_key]
-        #     temp.append(step.original_text)
-        # self.steps = temp
+        temp = []
+        for step_key in self.steps_data.keys():
+            step = self.steps_data[step_key]
+            temp.append(step.original_text)
+        self.steps = temp
         # print(self.steps)
         # starting the conversation with the user
         print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up! What do you want to do?")

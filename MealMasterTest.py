@@ -12,6 +12,8 @@ import requests
 import transformers as tra
 import re
 import steps_parser
+import doQuestion6
+import doQuestion3
 
 ## FUNCTIONS FOR WEBSCRAPING
 def get_soup(url:str):
@@ -331,9 +333,11 @@ class RecipeBot():
         
         # zero shot classification pipeline
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
+        st.download('en')
+        self.depgram = st.Pipeline('en')
         
         # REPLACE SELF.STEPS -- ETHAN
-        self.steps_data = steps_parser.doParsing(combineSteps(self.steps), self.ingredients)
+        self.steps_data = steps_parser.doParsing(self.zero_shot_pipe, self.depgram, combineSteps(self.steps), self.ingredients)
 
         temp = []
         for step_key in self.steps_data.keys():
@@ -426,12 +430,20 @@ class RecipeBot():
             "other_question_score": self.zs_add_scores(user_input, seq_other_q)
         }
 
+
+
         # checking t0 see if the question is about HOW to do something
         how_score = self.zs_add_scores(user_input, seq_how)
         # checking to see if the question is about WHAT something is
         what_score = self.zs_add_scores(user_input, seq_what)
         print("how_score: " + str(how_score))
         print("what_score: " + str(what_score))
+        # I PUT THIS HERE SO YOU KNOW HOW TO CALL QUESTION 6, CHANGE WHEN IT IS BEING CALLED
+        print(doQuestion6.goal6(self.zero_shot_pipe, self.depgram, user_input, self.ingredients, self.steps_data[self.curr_step + 1]))
+        # I ALSO PUT THIS HERE TO KNOW HOW TO CALL QUESTION 3, BUT YOU HAVE TO ADD THE GOOGLING OF THE RESULTS!!
+        print(doQuestion3.doQ3(self.zero_shot_pipe, self.depgram, user_input, self.steps_data[self.curr_step + 1]))
+
+
 
         # find the biggest, if the biggest is smaller than 10, go to "confused" state in the self.default function
         zs_best = "ing_score"
@@ -507,10 +519,11 @@ class RecipeBot():
             return self.print_ingredients()
         
         # if the user asks a "how to" question, scrape information from the web and print it.
-        elif zs_best == "other_question_score" or zs_scores["other_question_score"] > 3:
+        elif zs_best == "other_question_score":
             # checking to see if the question is about substitution
             sub_score = self.zs_add_scores(user_input, seq_sub)
             
+
             if sub_score > 12:
                 return self.get_substitute(user_input)
             else:

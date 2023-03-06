@@ -3,11 +3,15 @@ from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
-
+import stanza as st
+from typing import Optional
+from enum import Enum
+from difflib import SequenceMatcher as sm
 import json
 import requests
 import transformers as tra
 import re
+import steps_parser
 
 ## FUNCTIONS FOR WEBSCRAPING
 def get_soup(url:str):
@@ -71,14 +75,14 @@ def get_recipe(url:str):
     if recipe[0]:
         if recipe[1] == dict:
             ingredients = recipe[0]["recipeIngredient"]
-            name = recipe[0]["name"] # ASK SEAN TO EDIT THIS
+            name = recipe[0]["name"]
             if "itemListElement" in recipe[0]["recipeInstructions"]:
                 steps = recipe[0]["recipeInstructions"]["itemListElement"]
             else:
                 steps = recipe[0]["recipeInstructions"]
         elif recipe[1] == list:
             ingredients = recipe[0][0]["recipeIngredient"]
-            name = recipe[0][0]["name"] # ASK SEAN TO EDIT THIS
+            name = recipe[0][0]["name"]
             if "itemListElement" in recipe[0][0]["recipeInstructions"][0]:
                 steps = recipe[0][0]["recipeInstructions"][0]["itemListElement"]
             else:
@@ -90,6 +94,15 @@ def get_recipe(url:str):
             
     return [ingredients, instructions, name]
 
+def combineSteps(steps:list):
+    res = ""
+    for x in steps:
+        if x == "." or x == "," or x == "'" or x == ";" or x == ":" or x == "-" or x == "/":
+            res = res.rstrip()
+        res += x
+        res += " "
+    res = res.replace("&#39;", "'")
+    return res.rstrip()
 
 ## LISTS FOR ZERO SHOT AND DICTIONARIES FOR HARD CODED OPERATIONS
 seq_ing = [    
@@ -165,7 +178,8 @@ seq_prev = [
     "Can we backtrack to the previous instruction?",    
     "Return to the preceding step",    
     "Let's reverse to the last instruction",       
-    "Can we step back one instruction?"]
+    "Can we step back one instruction?",
+    "Take me to the last step"]
 
 seq_rep = [
     "Repeat the current step please.",
@@ -199,6 +213,11 @@ seq_other_q = [
     "Cooking Question",
     # I added one of the subistitution questions here
     "Question about substitution",   
+]
+
+seq_45_q = [
+    
+
 ]
 
 seq_sub = [    
@@ -289,7 +308,16 @@ class RecipeBot():
         
         # zero shot classification pipeline
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
+        
+        # REPLACE SELF.STEPS -- ETHAN
+        self.steps_data = steps_parser.doParsing(combineSteps(self.steps), self.ingredients)
 
+        temp = []
+        for step_key in self.steps_data.keys():
+            step = self.steps_data[step_key]
+            temp.append(step.original_text)
+        self.steps = temp
+        # print(self.steps)
         # starting the conversation with the user
         print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up! What do you want to do?")
         self.begin_conversation()
@@ -448,7 +476,6 @@ class RecipeBot():
         elif zs_best == "ing_score":
             return self.print_ingredients()
         
-        #NEED TO CHANGE THIS
         # if the user asks a "how to" question, scrape information from the web and print it.
         elif zs_best == "other_question_score":
             # checking to see if the question is about subistitution
@@ -517,29 +544,31 @@ class RecipeBot():
     # returns list of substitutes
     def get_substitute(self, query:str):
         query = re.sub("[.,;!]", "", query)
-
         chrome_options = Options()
         chrome_options.add_argument("--headless")
         driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = "http://www.google.com/search?q=" + query + "&start=" + str((0))
         driver.get(url)
         query_html = BeautifulSoup(driver.page_source, 'html.parser')
-        results = query_html.find_all('li', class_="TrT0Xe")
+        results = query_html.find('div', id="search")
+        results = results.find('div', class_="v7W49e")
+        results = results.find('div', class_="MjjYud")
+        first_attempt = results.find_all('li', class_="TrT0Xe")
         substitutes = []
-        if not results:
-            results = query_html.find('div', class_="MjjYud")
-            if results:
-                results = results.find_all('span')
-                for result in results:
-                    if "." in result.text:
-                        substitutes.append(result.text)
+        if not first_attempt:
+            second_attempt = results.find('span', class_="ILfuVd")
+            if not second_attempt:
+                third_attempt = results.find_all('span', {"class": None, "id": None, "data-ved": None})
+                substitutes.append(third_attempt[-1].text)
+            else:
+                substitutes.append(second_attempt.text)
         else:
-            for result in results:
+            for result in first_attempt:
                 result = result.text.split('.')[0]
                 substitutes.append(result)
         
         if substitutes:
-            print(f"{self.name}: No worries. Here is a list of substitutes. \n")
+            print(f"{self.name}: No worries. Here are the substitutes. \n")
             counter = 1
             for s in substitutes:
                 print(f"{counter}. {s}")

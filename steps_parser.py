@@ -1,30 +1,21 @@
 import stanza as st
 import numpy as np
-import re as reg
+import re as re
 from typing import Optional
 import transformers as tra
 from enum import Enum
 from difflib import SequenceMatcher as sm
 
-pipe = tra.pipeline(model="facebook/bart-large-mnli")
+pipe2 = tra.pipeline(task="zero-shot-classification", model="facebook/bart-large-mnli")
 st.download('en')
 depgram = st.Pipeline('en')#, processors='tokenize,mwt,pos,lemma,depparse,ner')
 
-ingredient_labels = ["ingredient", "slices", "chunks"]
+ingredient_labels = ["ingredient", "slices", "chunks", "quantity"]
 tool_labels = ["appliance", "cooking utensil", "container", "bowl", "pan", "board", "measuring tool", "knife", "strainer", "colinder", "spatula"]
 separation_labels = ["separate", "remove", "sift", "drain", "disgard", "filter"]
 combination_labels = ["add", "combine", "mix", "stir", "blend", "pour"]
 # print(pipe("bowl", candidate_labels=["food", "cooking utensil", "appliance", "container"]))
 
-class DetailType(Enum):
-    TIME = 0 # an amount of time (or "until...")
-    TEMPERATURE = 1 # a temperature
-    LOCATION = 2 # where to perform the step (like in a bowl, over a colinder)
-    PREP_MANNER = 3 # evenly, 
-    MACHINE_SETTING = 4 # non-temperature machine setting (like blender speed)
-    OPTIONAL = 5 # if the instruction is optional or at user discretion. usually can be indicated by "IF"
-    
-    MISC = 10 # if it doesn't fit significantly into any of the other categories. observe this to see if there are any commonalities to make categories
 
 class ListType(Enum):
     AND = 0 # a list of things that all are required
@@ -34,30 +25,30 @@ class ListType(Enum):
 # represents combinations of ingredients like a batter being made of eggs and stuff. uses list detection and dependency parsers to form this
 class IngredCombo:
     def __init__(   self, 
+                    id: int,            # a unique id for each ingredient combo object 
                     grouping_verb: str, # the verb that applies to the combination of ingredients. ex: "mix", "place X in bowl"/"stir"
                     constituents: list, # list of strings that go into this combination
-                    weight: int, # a weighting based on recency added. based on the number of preexisting combos
-                    combo_type: Optional[str] = None):
+                    combo_names: Optional[list] = None):
+        self.id = id
         self.grouping_verb = grouping_verb
         self.constituents = constituents
-        self.weight = weight
-        self.combo_type = ""
-        if combo_type != None:
-            self.combo_type = combo_type
-        else:
-            self.combo_type = self.determineComboType()
+        self.combo_names = []
+        if combo_names != None:
+            self.combo_names += combo_names
 
-    def determineComboType(self):
-        options = ["batter", "soup", "stew", "blend", "sauce", "powder", "broth", "mirepoix", "glaze"] # add onto this potentially
-        test_str = self.makeList()
-        pipe_results = pipe(test_str, candidate_labels=options)
-        if pipe_results != None and pipe_results['labels'] != None and pipe_results['labels'] != []:
-            if all(sc < 0.25 for sc in pipe_results['scores']):
-                result = "other"
-            else:
-                result = pipe_results['labels'][0]
+    def addComboName(self, name:str):
+        self.combo_names.append(name)
+    # def determineComboType(self):
+    #     options = ["batter", "soup", "stew", "blend", "sauce", "powder", "broth", "mirepoix", "glaze"] # add onto this potentially
+    #     test_str = self.makeList()
+    #     pipe_results = pipe(test_str, candidate_labels=options)
+    #     if pipe_results != None and pipe_results['labels'] != None and pipe_results['labels'] != []:
+    #         if all(sc < 0.25 for sc in pipe_results['scores']):
+    #             result = "other"
+    #         else:
+    #             result = pipe_results['labels'][0]
 
-        return result
+    #     return result
     
     def makeList(self):
         test_str = ""
@@ -73,30 +64,6 @@ class IngredCombo:
     def __str__(self):
         return "Combination type: " + self.combo_type + "\n\tGrouping verb: " + self.grouping_verb + "\n\tConstituents: " + str(self.constituents)
 
-class protoStep:
-    def __init__(   self,
-                    id: int = 0, # the number of the step
-                    action: str = "", # the root action of the step
-                    nouns: dict = None, # the nouns involved in the steps with name as key, 
-                    # and a list with its type [0] and then another list of associated strings [1] as values
-                    original_text: str = "" # the original text
-                    ):
-        self.id = id
-        self.action = action
-        self.nouns = {}
-        if nouns != None:
-            self.nouns = nouns
-        self.original_text = original_text
-
-    
-
-    def __str__(self):
-        outputStr = ""
-        outputStr = outputStr +  "id: " + str(self.id)
-        outputStr = outputStr + "\nOriginal text: " + str(self.original_text)
-        outputStr = outputStr + "\n\tRoot action: " + str(self.action)
-        outputStr = outputStr + "\n\tNouns: " + str(self.nouns)
-        return outputStr
 
 # note when going over ingredients, if there is a verb associated with it (like chopped leeks), make it a step if not already (chop leeks)
 
@@ -230,11 +197,12 @@ def isSameNoun(text1:str, text2:str, seen:dict):
 # return is bool of whether tool or not, and (updated) seen dict
 def isTool(text:str, seen:dict):
     res = False
-
-    if not text in seen:
+    text = text.lower()
+    if not text in seen.keys():
         (_, seen) = getNounType(text, seen)
+        # print("?")
 
-    if (text in seen) and seen[text]['labels'][0] in tool_labels:
+    if (text in seen.keys()) and seen[text]['labels'][0] in tool_labels:
             if seen[text]['scores'][0] > 0.1:
                 res = True
 
@@ -242,9 +210,10 @@ def isTool(text:str, seen:dict):
 
 def isIngredient(text:str, seen:dict):
     res = False
-
+    text = text.lower()
     if not text in seen:
         (_, seen) = getNounType(text, seen)
+        # print("?")
 
     if (text in seen) and seen[text]['labels'][0] in ingredient_labels:
             res = True
@@ -255,12 +224,13 @@ def isIngredient(text:str, seen:dict):
 
 def getNounType(text:str, seen: dict):
     res = ""
+    text = text.lower()
     if text in seen:
         res = seen[text]
     else:
         # add something here which will check if the noun is in the ingredients list
-        lst = ["time","quantity"] + ingredient_labels + tool_labels
-        res = pipe(text, candidate_labels=lst)
+        lst = ["time"] + ingredient_labels + tool_labels
+        res = pipe2(text, candidate_labels=lst)
         seen[text] = res
 
     # print(res)
@@ -272,7 +242,7 @@ def getAdjType(text:str, seen: dict):
     if text in seen:
         res = seen[text]
     else:
-        res = pipe(text, candidate_labels=["preparation manner", "compliment", "color", "texture", "temperature", "viscosity", "taste", "size"])
+        res = pipe2(text, candidate_labels=["preparation manner", "compliment", "color", "texture", "temperature", "viscosity", "taste", "size"])
         seen[text] = res
     
     return (res['labels'][0], seen)
@@ -508,7 +478,7 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
             # get the list of nouns in the NP
             nouns = []
             temp_noun_list = getAllOfTypes(children, ["NN", "NNS", "NNP", "NNPS"])
-            print(temp_noun_list)
+            # print(temp_noun_list)
             for ii in temp_noun_list:
                 nouns.append(ii)
             
@@ -517,22 +487,23 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
             # print(num_words_before + num_ids_in_phrase + getWordsRecurs(children, []).index(getFirstTypeBroad(children, "NN").children[0].label)+1)
             firstNounWordinList = getFirstTypeBroad(children, "NN").children[0].label
             gr_verb = getHeadVerb(dependencies, num_words_before + num_ids_in_phrase + getWordsRecurs(children, []).index(firstNounWordinList)+1)
-            for dp in gr_verb.deps.keys():
-                if any(xx in gr_verb.text.lower() for xx in separation_labels):
-                    break
-                if gr_verb.deps[dp][2] in ["obl", "obj"] and all(not gr_verb.deps[dp][1] in xx for xx in nouns):
-                    print(str(gr_verb.deps[dp][1]))
-                    NP_res = getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)
-                    if NP_res[0] == None: continue
-                    temp_obj = constituency_to_str(NP_res[0])
-                    if all(not temp_obj in yy for yy in nouns) and isIngredient(temp_obj, {}):
-                        nouns.append(temp_obj)
-                    # print(constituency_to_str(getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)[0]))
+            if gr_verb != None:
+                for dp in gr_verb.deps.keys():
+                    if any(xx in gr_verb.text.lower() for xx in separation_labels):
+                        break
+                    if gr_verb.deps[dp][2] in ["obl", "obj"] and all(not gr_verb.deps[dp][1] in xx for xx in nouns):
+                        # print(str(gr_verb.deps[dp][1]))
+                        NP_res = getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)
+                        if NP_res[0] == None: continue
+                        temp_obj = constituency_to_str(NP_res[0])
+                        if all(not temp_obj in yy for yy in nouns) and isIngredient(temp_obj, {}):
+                            nouns.append(temp_obj)
+                        # print(constituency_to_str(getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)[0]))
 
-            # print("LIST:")
-            # print(gr_verb)
-            # print(nouns)
-            if gr_verb != None: gr_verb = gr_verb.text
+                # print("LIST:")
+                # print(gr_verb)
+                # print(nouns)
+                if gr_verb != None: gr_verb = gr_verb.text
             noun_lists[len(noun_lists.keys())] = ((list_type, nouns, gr_verb))
         
     # add any straggler nouns to the noun list
@@ -564,11 +535,11 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
         if temp_res != None:
             # if we just add like above, we will only get the RP word but we want the object of the VP this PRT is in, so let's get that object
             # first, get the head of this RP
-            print(num_words_before + num_ids_in_phrase + 1)
+            # print(num_words_before + num_ids_in_phrase + 1)
             RP_text = constituency_to_str(tree)
             head_wrd = dependencies[dependencies[num_words_before + num_ids_in_phrase + 1].head_id]
             for dep_id in head_wrd.deps:
-                print(head_wrd.deps[dep_id][0])
+                # print(head_wrd.deps[dep_id][0])
                 if head_wrd.deps[dep_id][2] == "obj":
                     RP_text += " " + getDepPhrase(dependencies, head_wrd.deps[dep_id][0])
             if(all(not RP_text in prep_phrases[pp][1] for pp in prep_phrases)):
@@ -587,7 +558,7 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
     
     # print(childr)
     if len(children) == 0 or str(tree) == label: # base case
-        return (verb_phrases, prep_phrases, noun_lists)
+        return (verb_phrases, prep_phrases, noun_lists, num_ids_in_phrase, nouns_cat)
     else: # go over all child branches
         for branch in children:
             if str(branch) == branch.label:
@@ -615,7 +586,6 @@ def doParsing(test_phrase:str, ingredient_list:list):
     # print(test_doc)
     # print(test_doc.entities)
     steps = {}
-    protos = {}
     curr_id = 1
     noun_seen = {}
     adj_seen = {}
@@ -627,23 +597,23 @@ def doParsing(test_phrase:str, ingredient_list:list):
     for sent in test_doc.sentences:
         consti = sent.constituency
         (dep, name_to_dep_ids) = getDependency(sent.dependencies)
-        for ti in dep.keys():
-            print(dep[ti])
+        # for ti in dep.keys():
+            # print(dep[ti])
             # print(ti)
         # print(consti)
         # print(consti.label) 
         # print(consti.children) # do some tree traversal to find preposition phrases and add them to details(?) Probably BFS
         # sent.print_dependencies()
-        print(consti.children[0]) # the useful data
+        # print(consti.children[0]) # the useful data
         # print(type(consti))
-        print(sent.text)
+        # print(sent.text)
 
         # print(constituency_to_str(consti))
         (verb_phrases, prep_phrases, noun_lists, _, nouns_phr) = getPhrases(consti.children[0], sent.text, dep)
-        print("verb phrases: " + str(verb_phrases))
-        print("prep phrases: " + str(prep_phrases))
-        print("noun lists: " + str(noun_lists))
-        print("nouns: " + str(nouns_phr))
+        # print("verb phrases: " + str(verb_phrases))
+        # print("prep phrases: " + str(prep_phrases))
+        # print("noun lists: " + str(noun_lists))
+        # print("nouns: " + str(nouns_phr))
         # getPhrases(consti.children[0], sent.text)
 
         root = ""
@@ -652,13 +622,9 @@ def doParsing(test_phrase:str, ingredient_list:list):
         tools = {}
         details = {}
 
-        noun_groupings = {} # noun as key, type and then a list of subordinate adjectives, nouns, and numbers as values
+        nouns_seen = {}
 
         for wrd in sent.words:
-            
-            noun_type = None
-            head_word = None
-            if wrd.head != None: head_word = sent.words[wrd.head-1]
 
             if wrd.deprel == "punct":
                 continue
@@ -674,86 +640,98 @@ def doParsing(test_phrase:str, ingredient_list:list):
                 root = wrd.text
                 continue
 
+
+        # print("STARTING ZERO SHOT")
         for nn in nouns_phr:
-            (res, noun_seen) = getNounType(nn[0], noun_seen)
-            if res in ['ingredient', 'slices', 'chunks']:
-                ingredients[nn[0]] = nn # change later to be something like all the ingredients that make it up
-            elif res in ["appliance","cooking utensil","container","bowl","pan","board","measuring tool"]:
+            (res, nouns_seen) = getNounType(nn[0], nouns_seen)
+            (ingr, nouns_seen) = isIngredient(nn[0], nouns_seen)
+            (tool, nouns_seen) = isTool(nn[0], nouns_seen)
+            if ingr:
+                ingredients[nn[0]] = (nn[0], nn[1], res) # change later to be something like all the ingredients that make it up
+            elif tool:
                 # print(tools)
                 tools[nn[0]] = (nn[0], nn[1], res) 
+        # print("END OF ZERO SHOT")
+        # print(nouns_seen)
 
         details = prep_phrases
-            
-        # ok now that we have stuff like object hierarchies established, we should get the direct object and the indirect object of each action
-        for vp in verb_phrases.keys():
-            # so let's check the dependency graph for the dependent words
-            poss_ids = name_to_dep_ids[verb_phrases[vp][0]]
-            for psi in poss_ids:
-                print(dep[psi])
-                dir_obj = ""
-                indir_obj = []
-                for dp in dep[psi].deps.keys():
-                    current_word = dep[psi].deps[dp]
-                    print(current_word[1])
-                    print(verb_phrases[vp][1])
-                    if not current_word[1] in verb_phrases[vp][1]: continue
-                    if current_word[2] == "obj":
-                        # first check if it is an ingredient, 
-                        for xx in ingredients:
+        
+        # create hierarchies for noun_lists
+        for nn in noun_lists.keys():
+            noun_lists[nn]
+
+        # # ok now that we have stuff like object hierarchies established, we should get the direct object and the indirect object of each action
+        # for vp in verb_phrases.keys():
+        #     # so let's check the dependency graph for the dependent words
+        #     poss_ids = name_to_dep_ids[verb_phrases[vp][0].lower()]
+        #     for psi in poss_ids:
+        #         print(dep[psi])
+        #         dir_obj = ""
+        #         indir_obj = []
+        #         for dp in dep[psi].deps.keys():
+        #             current_word = dep[psi].deps[dp]
+        #             print(current_word[1])
+        #             print(verb_phrases[vp][1])
+        #             if not current_word[1] in verb_phrases[vp][1]: continue
+        #             if current_word[2] == "obj":
+        #                 # first check if it is an ingredient, 
+        #                 for xx in ingredients:
                             
-                            if current_word[1] in xx:
-                                dir_obj = xx
-                                # first check if it is part of a combo from this step
-                                inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
-                                for lst in noun_lists.keys():
-                                    for memb in noun_lists[lst][1]:
-                                        if current_word[1] in memb:
-                                            inCombo = True
-                                            dir_obj = noun_lists[lst][1]
+        #                     if current_word[1] in xx:
+        #                         dir_obj = xx
+        #                         # first check if it is part of a combo from this step
+        #                         inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
+        #                         for lst in noun_lists.keys():
+        #                             for memb in noun_lists[lst][1]:
+        #                                 if current_word[1] in memb:
+        #                                     inCombo = True
+        #                                     dir_obj = noun_lists[lst][1]
                                 
-                                # TODO: then check if it is an ingredient from a combo from a previous step
-                                if not inCombo:
-                                    pass
-                                # then if not, we can just add the corresp. ingredient
-                                if not inCombo:
-                                    dir_obj = xx
-                        # if not an ingredient, we can just add this
-                        if dir_obj == "": 
-                            dir_obj = current_word[1]
-                    elif current_word[2] == "obl":
-                        curr_indir_obj = ""
-                        # first check if it is an ingredient, 
-                        for xx in ingredients:
-                            if current_word[1] in xx:
-                                curr_indir_obj = xx
-                                # first check if it is part of a combo from this step
-                                inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
-                                for lst in noun_lists.keys():
-                                    for memb in noun_lists[lst][1]:
-                                        if current_word[1] in memb:
-                                            inCombo = True
-                                            curr_indir_obj = noun_lists[lst][1]
+        #                         # TODO: then check if it is an ingredient from a combo from a previous step
+        #                         if not inCombo:
+        #                             pass
+        #                         # then if not, we can just add the corresp. ingredient
+        #                         if not inCombo:
+        #                             dir_obj = xx
+        #                 # if not an ingredient, we can just add this
+        #                 if dir_obj == "": 
+        #                     dir_obj = current_word[1]
+        #             elif current_word[2] == "obl":
+        #                 curr_indir_obj = ""
+        #                 # first check if it is an ingredient, 
+        #                 for xx in ingredients:
+        #                     if current_word[1] in xx:
+        #                         curr_indir_obj = xx
+        #                         # first check if it is part of a combo from this step
+        #                         inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
+        #                         for lst in noun_lists.keys():
+        #                             for memb in noun_lists[lst][1]:
+        #                                 if current_word[1] in memb:
+        #                                     inCombo = True
+        #                                     curr_indir_obj = noun_lists[lst][1]
                                 
-                                # TODO: then check if it is an ingredient from a combo from a previous step
-                                if not inCombo:
-                                    pass
-                                # then if not, we can just add the corresp. ingredient
-                                if not inCombo:
-                                    curr_indir_obj = xx
-                        # if not an ingredient, we can just add this
-                        if curr_indir_obj == "": 
-                            curr_indir_obj = current_word[1]
-                        indir_obj.append(curr_indir_obj)
-                print(dir_obj)
-                print(indir_obj)        
-                actions[vp] = (verb_phrases[vp][0], verb_phrases[vp][1], dir_obj, indir_obj)
-        steps[curr_id] = Step(curr_id, root, actions, ingredients, tools, details, sent.text)
+        #                         # TODO: then check if it is an ingredient from a combo from a previous step
+        #                         if not inCombo:
+        #                             pass
+        #                         # then if not, we can just add the corresp. ingredient
+        #                         if not inCombo:
+        #                             curr_indir_obj = xx
+        #                 # if not an ingredient, we can just add this
+        #                 if curr_indir_obj == "": 
+        #                     curr_indir_obj = current_word[1]
+        #                 indir_obj.append(curr_indir_obj)
+        #         print(dir_obj)
+        #         print(indir_obj)        
+        #         actions[vp] = (verb_phrases[vp][0], verb_phrases[vp][1], dir_obj, indir_obj)
+        steps[curr_id] = Step(curr_id, root, verb_phrases, ingredients, tools, details, sent.text)
         
         curr_id += 1
     
 
     return steps
 # (ROOT (S (VP (VB Divide) (NP (DT the) (NN batter)) (PP (IN between) (NP (DT the) (VBN prepared) (NNS pans)))) (. .)))
+
+
 
 def main():
     test_text = ""
@@ -762,15 +740,16 @@ def main():
     # test_text = "In a medium bowl, evenly whisk the confectioners' sugar with the lemon zest, lemon juice, butter and salt until smooth. Drizzle the glaze over the top of the cake, letting it drip down the sides. Let stand for 20 minutes until the glaze is set. Cut the cake into wedges and serve."
     # test_text = "Here's a list: eggs, flour, sugar, oil, cinnamon, and baking powder. Place the icing and batter in the fridge. Close your fridge, mouth or lips, and eyes and wait 50 hours. Try cakes or cookies."
     # test_text = "Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices."
-    test_text = "Slowly remove the milk from the batter, the dough, and the glaze using a strainer."
+    test_text = "Prep the strawberries: Cut the stems away from the strawberries and discard. Cut the strawberries in half, and then in either quarters or thick slices. Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices. Mash some of the strawberries: After 20 minutes or so, mash about a quarter of the berries in the bowl with a potato masher and stir to mix. You don't want to mash all the berries, just enough of them for their juices. Let sit while you bake the biscuits. Bake the biscuits: Use the recipe below to bake the biscuits. Make the whipped cream: While the biscuits are baking, whip the cream using an electric mixer, adding a drop or two of vanilla and 2 teaspoons of powdered sugar. Cover with plastic and place in the refrigerator to chill until ready to serve. To serve, break up one biscuit per person into big pieces into a bowl. Ladle strawberries over the biscuit. Add a dollop of whipped cream."
+    # test_text = "After 20 minutes or so, mash about a quarter of the berries in the bowl with a potato masher and stir to mix."
+    # test_text = "remove the milk from the batter, the dough, and the glaze using a strainer."
     ingredient_list = ["confectioner's sugar", "lemon zest", "lemon juice", "butter", "salt", "glaze"]
-    steps = doParsing(test_text, ingredient_list)
+    # steps = doParsing(test_text, ingredient_list)
 
-    for x in steps.keys():
-        print(steps[x])
-
+    # for x in steps.keys():
+    #     print(steps[x])
+    
 
 if __name__ == '__main__':
     main()
-
 

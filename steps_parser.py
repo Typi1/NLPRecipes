@@ -65,6 +65,10 @@ class IngredCombo:
             test_str += x
             test_str += " "
         return test_str.rstrip()
+    
+    # TODO
+    def addConstituent(self, ingr):
+        pass
 
     def __str__(self):
         return "Combination type: " + self.combo_type + "\n\tGrouping verb: " + self.grouping_verb + "\n\tConstituents: " + str(self.constituents)
@@ -302,11 +306,12 @@ def getFirstTypeBroad(children:list, typ: str):
             
 def getAllOfTypes(children:list, typs: list):
     res = []
-    
+
     if len(children) == 1 and children[0].label == str(children[0]):
         return res
     
     for branch in children:
+        if "NN" in typs and branch.label == "VP": continue
         if any(branch.label == typ for typ in typs):
             if len(branch.children) == 1 and branch.children[0].label == str(branch.children[0]):
                 res.append(branch.children[0].label)
@@ -516,7 +521,7 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
                 if any(xx in gr_verb.text.lower() for xx in separation_labels):
                     break
                 if gr_verb.deps[dp][2] in ["obl", "obj"] and all(not gr_verb.deps[dp][1] in xx for xx in nouns):
-                    print(gr_verb.deps[dp][1])
+                    print(str(gr_verb.deps[dp][1]))
                     NP_res = getNPfromNNx(og_tree, gr_verb.deps[dp][1], False, False)
                     if NP_res[0] == None: continue
                     temp_obj = constituency_to_str(NP_res[0])
@@ -543,6 +548,7 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
     if label == "VP":
         if all((x.label != "VP") for x in children):
             temp_res = getFirstType(children, "VB")
+
             if temp_res != None and temp_res.children[0].label.lower() != "let":
                 verb_phrases[len(verb_phrases.keys())] = (temp_res.children[0].label, constituency_to_str(tree))
             
@@ -614,13 +620,16 @@ def doParsing(test_phrase:str, ingredient_list:list):
     noun_seen = {}
     adj_seen = {}
 
-
+    # dict of ingredient combinations with integer ids as keys and values:
+    #   the list of constituent nouns as tuples with if they are 
+    hierarchy = {}
 
     for sent in test_doc.sentences:
         consti = sent.constituency
         (dep, name_to_dep_ids) = getDependency(sent.dependencies)
         for ti in dep.keys():
             print(dep[ti])
+            # print(ti)
         # print(consti)
         # print(consti.label) 
         # print(consti.children) # do some tree traversal to find preposition phrases and add them to details(?) Probably BFS
@@ -673,27 +682,74 @@ def doParsing(test_phrase:str, ingredient_list:list):
                 # print(tools)
                 tools[nn[0]] = (nn[0], nn[1], res) 
 
-        # for nn in noun_groupings.keys():
-        #     if noun_groupings[nn][0] == 'ingredient':
-        #         ingredients[nn] = noun_groupings[nn][1]
-
-        # for nn in noun_groupings.keys():
-        #     if any(noun_groupings[nn][0] == tempx for tempx in ["appliance","cooking utensil","container","quantity","bowl","pan","board","measuring tool"]):
-        #         tools[nn] = noun_groupings[nn][1]
-
         details = prep_phrases
             
-
-        steps[curr_id] = Step(curr_id, root, verb_phrases, ingredients, tools, details, sent.text)
-
+        # ok now that we have stuff like object hierarchies established, we should get the direct object and the indirect object of each action
+        for vp in verb_phrases.keys():
+            # so let's check the dependency graph for the dependent words
+            poss_ids = name_to_dep_ids[verb_phrases[vp][0]]
+            for psi in poss_ids:
+                print(dep[psi])
+                dir_obj = ""
+                indir_obj = []
+                for dp in dep[psi].deps.keys():
+                    current_word = dep[psi].deps[dp]
+                    print(current_word[1])
+                    print(verb_phrases[vp][1])
+                    if not current_word[1] in verb_phrases[vp][1]: continue
+                    if current_word[2] == "obj":
+                        # first check if it is an ingredient, 
+                        for xx in ingredients:
+                            
+                            if current_word[1] in xx:
+                                dir_obj = xx
+                                # first check if it is part of a combo from this step
+                                inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
+                                for lst in noun_lists.keys():
+                                    for memb in noun_lists[lst][1]:
+                                        if current_word[1] in memb:
+                                            inCombo = True
+                                            dir_obj = noun_lists[lst][1]
+                                
+                                # TODO: then check if it is an ingredient from a combo from a previous step
+                                if not inCombo:
+                                    pass
+                                # then if not, we can just add the corresp. ingredient
+                                if not inCombo:
+                                    dir_obj = xx
+                        # if not an ingredient, we can just add this
+                        if dir_obj == "": 
+                            dir_obj = current_word[1]
+                    elif current_word[2] == "obl":
+                        curr_indir_obj = ""
+                        # first check if it is an ingredient, 
+                        for xx in ingredients:
+                            if current_word[1] in xx:
+                                curr_indir_obj = xx
+                                # first check if it is part of a combo from this step
+                                inCombo = False # any(current_word[0] in zz for zz in list(noun_lists[yy][1] for yy in noun_lists.keys()))
+                                for lst in noun_lists.keys():
+                                    for memb in noun_lists[lst][1]:
+                                        if current_word[1] in memb:
+                                            inCombo = True
+                                            curr_indir_obj = noun_lists[lst][1]
+                                
+                                # TODO: then check if it is an ingredient from a combo from a previous step
+                                if not inCombo:
+                                    pass
+                                # then if not, we can just add the corresp. ingredient
+                                if not inCombo:
+                                    curr_indir_obj = xx
+                        # if not an ingredient, we can just add this
+                        if curr_indir_obj == "": 
+                            curr_indir_obj = current_word[1]
+                        indir_obj.append(curr_indir_obj)
+                print(dir_obj)
+                print(indir_obj)        
+                actions[vp] = (verb_phrases[vp][0], verb_phrases[vp][1], dir_obj, indir_obj)
+        steps[curr_id] = Step(curr_id, root, actions, ingredients, tools, details, sent.text)
+        
         curr_id += 1
-
-    # for x in steps.keys():
-    #     print(steps[x])
-
-
-    # for x in protos.keys():
-    #     print(protos[x])
     
 
     return steps

@@ -7,8 +7,13 @@ from enum import Enum
 from difflib import SequenceMatcher as sm
 
 pipe = tra.pipeline(model="facebook/bart-large-mnli")
+st.download('en')
+depgram = st.Pipeline('en')#, processors='tokenize,mwt,pos,lemma,depparse,ner')
+
 ingredient_labels = ["ingredient", "slices", "chunks"]
-tool_labels = ["appliance", "cooking utensil", "container", "bowl", "pan", "board", "measuring tool", "knife"]
+tool_labels = ["appliance", "cooking utensil", "container", "bowl", "pan", "board", "measuring tool", "knife", "strainer", "colinder", "spatula"]
+separation_labels = ["separate", "remove", "sift", "drain", "disgard", "filter"]
+combination_labels = ["add", "combine", "mix", "stir", "blend", "pour"]
 # print(pipe("bowl", candidate_labels=["food", "cooking utensil", "appliance", "container"]))
 
 class DetailType(Enum):
@@ -31,9 +36,11 @@ class IngredCombo:
     def __init__(   self, 
                     grouping_verb: str, # the verb that applies to the combination of ingredients. ex: "mix", "place X in bowl"/"stir"
                     constituents: list, # list of strings that go into this combination
+                    weight: int, # a weighting based on recency added. based on the number of preexisting combos
                     combo_type: Optional[str] = None):
         self.grouping_verb = grouping_verb
         self.constituents = constituents
+        self.weight = weight
         self.combo_type = ""
         if combo_type != None:
             self.combo_type = combo_type
@@ -223,7 +230,7 @@ def isTool(text:str, seen:dict):
     if not text in seen:
         (_, seen) = getNounType(text, seen)
 
-    if (text in seen) and any(seen[text]['labels'][0] == applic for applic in ['container', 'cooking utensil', 'appliance','bowl','pan','board', 'measuring tool']):
+    if (text in seen) and seen[text]['labels'][0] in tool_labels:
             if seen[text]['scores'][0] > 0.1:
                 res = True
 
@@ -235,7 +242,7 @@ def isIngredient(text:str, seen:dict):
     if not text in seen:
         (_, seen) = getNounType(text, seen)
 
-    if (text in seen) and seen[text]['labels'][0] == 'ingredient':
+    if (text in seen) and seen[text]['labels'][0] in ingredient_labels:
             res = True
 
     return (res, seen)
@@ -261,7 +268,7 @@ def getAdjType(text:str, seen: dict):
     if text in seen:
         res = seen[text]
     else:
-        res = pipe(wrd.text, candidate_labels=["preparation manner", "compliment", "color", "texture", "temperature", "viscosity", "taste", "size"])
+        res = pipe(text, candidate_labels=["preparation manner", "compliment", "color", "texture", "temperature", "viscosity", "taste", "size"])
         seen[text] = res
     
     return (res['labels'][0], seen)
@@ -506,7 +513,7 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
             firstNounWordinList = getFirstTypeBroad(children, "NN").children[0].label
             gr_verb = getHeadVerb(dependencies, num_words_before + num_ids_in_phrase + getWordsRecurs(children, []).index(firstNounWordinList)+1)
             for dp in gr_verb.deps.keys():
-                if any(xx in gr_verb.text.lower() for xx in ["separate", "remove", "sift", "drain", "disgard"]):
+                if any(xx in gr_verb.text.lower() for xx in separation_labels):
                     break
                 if gr_verb.deps[dp][2] in ["obl", "obj"] and all(not gr_verb.deps[dp][1] in xx for xx in nouns):
                     print(gr_verb.deps[dp][1])
@@ -588,197 +595,126 @@ def getPhrasesRecurs(   tree:st.models.constituency.parse_tree.Tree, # the stanz
 
     
 
-# test_phrase = "Blend the sweet strawberry cream in the blender with cinnamon."
-# test_phrase = "After preparing 20 pounds of batter, insert it into a lovely pan."
-# test_phrase = "In a medium bowl, evenly whisk the confectioners' sugar with the lemon zest, lemon juice, butter and salt until smooth. Drizzle the glaze over the top of the cake, letting it drip down the sides. Let stand for 20 minutes until the glaze is set. Cut the cake into wedges and serve."
-# test_phrase = "Here's a list: eggs, flour, sugar, oil, cinnamon, and baking powder. Place the icing and batter in the fridge. Close your fridge, mouth or lips, and eyes and wait 50 hours. Try cakes or cookies."
-# test_phrase = "Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices."
-test_phrase = "Slowly remove the milk from the batter, the dough, and the glaze using a strainer."
-# ingredient_list = ["confectioner's sugar", "lemon zest", "lemon juice", "butter", "salt", "glaze"]
-
-
-st.download('en')
-depgram = st.Pipeline('en')#, processors='tokenize,mwt,pos,lemma,depparse,ner')
-test_doc = depgram(test_phrase)
-
-# print(test_doc.depparse)
-
-# print(test_doc)
-# print(test_doc.entities)
-steps = {}
-protos = {}
-curr_id = 1
-noun_seen = {}
-adj_seen = {}
 
 
 
-for sent in test_doc.sentences:
-    consti = sent.constituency
-    (dep, name_to_dep_ids) = getDependency(sent.dependencies)
-    for ti in dep.keys():
-        print(dep[ti])
-    # print(consti)
-    # print(consti.label) 
-    # print(consti.children) # do some tree traversal to find preposition phrases and add them to details(?) Probably BFS
-    # sent.print_dependencies()
-    print(consti.children[0]) # the useful data
-    # print(type(consti))
-    print(sent.text)
-
-    # print(constituency_to_str(consti))
-    (verb_phrases, prep_phrases, noun_lists, _, nouns_phr) = getPhrases(consti.children[0], sent.text, dep)
-    print("verb phrases: " + str(verb_phrases))
-    print("prep phrases: " + str(prep_phrases))
-    print("noun lists: " + str(noun_lists))
-    print("nouns: " + str(nouns_phr))
-    # getPhrases(consti.children[0], sent.text)
-
-    root = ""
-    actions = {}
-    ingredients = {}
-    tools = {}
-    details = {}
-
-    noun_groupings = {} # noun as key, type and then a list of subordinate adjectives, nouns, and numbers as values
-
-    for wrd in sent.words:
-        
-        noun_type = None
-        head_word = None
-        if wrd.head != None: head_word = sent.words[wrd.head-1]
-
-        if wrd.deprel == "punct":
-            continue
-        
-        # print(wrd.text, wrd.lemma)
-        # print("\t" + wrd.pos)
-        # print("\thead: " + str(wrd.head-1) + " " + head_word.text) # note ID is 1-indexed, NOT 0-indexed
-        # print("\t" + wrd.deprel)
-        # if wrd.feats != None: 
-        #     print("\t" + wrd.feats)
-
-        if wrd.deprel == "root":
-            root = wrd.text
-            continue
-        if wrd.pos == "VERB" and root.lower().lstrip().rstrip() == "let":
-            root = wrd.text
-
-        if wrd.pos == "NOUN":
-            # if this noun is new, add it to the dictionary fresh
-            if not wrd.text in noun_groupings.keys():
-                (noun_type, noun_seen) = getNounType(wrd.text, noun_seen)
-
-                noun_groupings[wrd.text] = [noun_type, []]
 
 
-            # if this noun has a superordinate noun, check if that is in the groupings dict (add it if not),
-            # and add the current noun to its list of qualifiers
-            if head_word.pos == "NOUN":
-                sub_noun_type = pipe(wrd.text, candidate_labels=["number", "consituent"])['labels'][0]
-                # note that some values in this can be keys to a larger description of them
-                # EX:   {'pounds': ['amount', [('10', 'number'), ('CREAM', 'consituent')]], 
-                #       'CREAM': ['ingredient', [('strawberry', 'consituent')]]}
-                if not head_word.text in noun_groupings.keys():
-                    (temp_head_results, noun_seen) = getNounType(head_word.text, noun_seen)
-                    noun_groupings[head_word.text] = [temp_head_results, []]
-                
-                noun_groupings[head_word.text][1].append((sub_noun_type, wrd.text))
-                
-        # if wrd.pos == "ADP" or wrd.pos == "DET" or wrd.pos == "NUM":
-        if head_word.pos == "NOUN" and wrd.pos != "VERB":
+def doParsing(test_phrase:str, ingredient_list:list):
 
-            # if the current word is an adjective, 
-            if wrd.pos == "ADJ":
-                # if the current head noun isn't in the groupings dict, add it
-                if not head_word.text in noun_groupings.keys():
-                    (temp_head_results, noun_seen) = getNounType(head_word.text, noun_seen)
-                    noun_groupings[head_word.text] = [temp_head_results, []]
-                # get a type for the adjective
-                (sub_adj_type, adj_seen) = getAdjType(wrd.text, adj_seen)
-                # add the adjective to the list of qualifiers associated with the head noun
-                noun_groupings[head_word.text][1].append((sub_adj_type,wrd.text))
-            elif wrd.pos == "NUM":
-                if not head_word.text in noun_groupings.keys():
-                    (temp_head_results, noun_seen) = getNounType(head_word.text, noun_seen)
-                    noun_groupings[head_word.text] = [temp_head_results, []]
-                noun_groupings[head_word.text][1].append(("number",wrd.text))
+    test_doc = depgram(test_phrase)
 
-        
+    # print(test_doc.depparse)
 
-        #     if head_word.text in noun_to_ADP.keys():
-        #         if wrd.text in noun_to_ADP.keys():
-        #             noun_to_ADP[head_word.text][0] = noun_to_ADP[head_word.text][0] + " " + noun_to_ADP[wrd.text][0] + " " + wrd.text
-        #         else:
-        #             noun_to_ADP[head_word.text][0] = noun_to_ADP[head_word.text][0] + " " + wrd.text
-        #     else:
-        #         if wrd.text in noun_to_ADP.keys():
-        #             noun_to_ADP[head_word.text] = [noun_to_ADP[wrd.text][0] + " " + wrd.text, ""]
-        #         else:
-        #             noun_to_ADP[head_word.text] = [wrd.text, ""]
-        # if wrd.text in noun_to_ADP.keys():
-        #     noun_to_ADP[wrd.text][1] = noun_to_ADP[wrd.text][0] + " " + wrd.text
-        #     noun_to_ADP[wrd.text][0] = noun_to_ADP[wrd.text][0] + " " + wrd.text
+    # print(test_doc)
+    # print(test_doc.entities)
+    steps = {}
+    protos = {}
+    curr_id = 1
+    noun_seen = {}
+    adj_seen = {}
 
-        
-    # for x in noun_to_ADP.keys():
-    #     temp_phrase_pipe = pipe(noun_to_ADP[x][1], candidate_labels=["temperature","container", "quantity", "ingredient", "time","cooking appliance", "location", "cooking utensil","wrapping", "cutlery","meal"])
-    #     # print(temp_phrase_pipe)
-    #     noun_to_ADP[x] = (temp_phrase_pipe['labels'][0], noun_to_ADP[x][0])
+
+
+    for sent in test_doc.sentences:
+        consti = sent.constituency
+        (dep, name_to_dep_ids) = getDependency(sent.dependencies)
+        for ti in dep.keys():
+            print(dep[ti])
+        # print(consti)
+        # print(consti.label) 
+        # print(consti.children) # do some tree traversal to find preposition phrases and add them to details(?) Probably BFS
+        # sent.print_dependencies()
+        print(consti.children[0]) # the useful data
+        # print(type(consti))
+        print(sent.text)
+
+        # print(constituency_to_str(consti))
+        (verb_phrases, prep_phrases, noun_lists, _, nouns_phr) = getPhrases(consti.children[0], sent.text, dep)
+        print("verb phrases: " + str(verb_phrases))
+        print("prep phrases: " + str(prep_phrases))
+        print("noun lists: " + str(noun_lists))
+        print("nouns: " + str(nouns_phr))
+        # getPhrases(consti.children[0], sent.text)
+
+        root = ""
+        actions = {}
+        ingredients = {}
+        tools = {}
+        details = {}
+
+        noun_groupings = {} # noun as key, type and then a list of subordinate adjectives, nouns, and numbers as values
+
+        for wrd in sent.words:
+            
+            noun_type = None
+            head_word = None
+            if wrd.head != None: head_word = sent.words[wrd.head-1]
+
+            if wrd.deprel == "punct":
+                continue
+            
+            # print(wrd.text, wrd.lemma)
+            # print("\t" + wrd.pos)
+            # print("\thead: " + str(wrd.head-1) + " " + head_word.text) # note ID is 1-indexed, NOT 0-indexed
+            # print("\t" + wrd.deprel)
+            # if wrd.feats != None: 
+            #     print("\t" + wrd.feats)
+
+            if wrd.deprel == "root":
+                root = wrd.text
+                continue
+
+        for nn in nouns_phr:
+            (res, noun_seen) = getNounType(nn[0], noun_seen)
+            if res in ['ingredient', 'slices', 'chunks']:
+                ingredients[nn[0]] = nn # change later to be something like all the ingredients that make it up
+            elif res in ["appliance","cooking utensil","container","bowl","pan","board","measuring tool"]:
+                # print(tools)
+                tools[nn[0]] = (nn[0], nn[1], res) 
+
+        # for nn in noun_groupings.keys():
+        #     if noun_groupings[nn][0] == 'ingredient':
+        #         ingredients[nn] = noun_groupings[nn][1]
+
+        # for nn in noun_groupings.keys():
+        #     if any(noun_groupings[nn][0] == tempx for tempx in ["appliance","cooking utensil","container","quantity","bowl","pan","board","measuring tool"]):
+        #         tools[nn] = noun_groupings[nn][1]
+
+        details = prep_phrases
+            
+
+        steps[curr_id] = Step(curr_id, root, verb_phrases, ingredients, tools, details, sent.text)
+
+        curr_id += 1
+
+    # for x in steps.keys():
+    #     print(steps[x])
+
+
+    # for x in protos.keys():
+    #     print(protos[x])
     
-    # print(noun_to_qualifiers)
-    # print(noun_to_ADP)
-    
-    # for x in noun_to_ADP.keys():
-    #     if noun_to_ADP[x][0] == "ingredient" or noun_to_ADP[x][0] == "meal":
-    #         ingredients[x] = noun_to_ADP[x][1]
-    #     elif noun_to_ADP[x][0] == "container" or  noun_to_ADP[x][0] == "cooking appliance" or noun_to_ADP[x][0] == "cooking utensil"  or noun_to_ADP[x][0] == "food packaging"  or noun_to_ADP[x][0] == "wrapping" or noun_to_ADP[x][0] == "cutlery" or noun_to_ADP[x][0] == "location":
-    #         tools[x] = noun_to_ADP[x][1]
-    #     else:
-    #         details[x] = noun_to_ADP[x][1] 
 
-    # steps[curr_id] = Step(curr_id, root, ingredients, tools, details, sent.text)
-    print(noun_groupings)
-
-    protos[curr_id] = protoStep(curr_id, root, noun_groupings, sent.text)
-
-    for nn in nouns_phr:
-        (res, noun_seen) = getNounType(nn[0], noun_seen)
-        if res in ['ingredient', 'slices', 'chunks']:
-            ingredients[nn[0]] = nn # change later to be something like all the ingredients that make it up
-        elif res in ["appliance","cooking utensil","container","bowl","pan","board","measuring tool"]:
-            # print(tools)
-            tools[nn[0]] = (nn[0], nn[1], res) 
-
-    # for nn in noun_groupings.keys():
-    #     if noun_groupings[nn][0] == 'ingredient':
-    #         ingredients[nn] = noun_groupings[nn][1]
-
-    # for nn in noun_groupings.keys():
-    #     if any(noun_groupings[nn][0] == tempx for tempx in ["appliance","cooking utensil","container","quantity","bowl","pan","board","measuring tool"]):
-    #         tools[nn] = noun_groupings[nn][1]
-
-    details = prep_phrases
-        
-
-    steps[curr_id] = Step(curr_id, root, verb_phrases, ingredients, tools, details, sent.text)
-
-    curr_id += 1
-
-# for x in steps.keys():
-#     print(steps[x])
-
-
-# for x in protos.keys():
-#     print(protos[x])
-for x in steps.keys():
-    print(steps[x])
-
+    return steps
 # (ROOT (S (VP (VB Divide) (NP (DT the) (NN batter)) (PP (IN between) (NP (DT the) (VBN prepared) (NNS pans)))) (. .)))
 
+def main():
+    test_text = ""
+    # test_text = "Blend the sweet strawberry cream in the blender with cinnamon."
+    # test_text = "After preparing 20 pounds of batter, insert it into a lovely pan."
+    # test_text = "In a medium bowl, evenly whisk the confectioners' sugar with the lemon zest, lemon juice, butter and salt until smooth. Drizzle the glaze over the top of the cake, letting it drip down the sides. Let stand for 20 minutes until the glaze is set. Cut the cake into wedges and serve."
+    # test_text = "Here's a list: eggs, flour, sugar, oil, cinnamon, and baking powder. Place the icing and batter in the fridge. Close your fridge, mouth or lips, and eyes and wait 50 hours. Try cakes or cookies."
+    # test_text = "Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices."
+    test_text = "Slowly remove the milk from the batter, the dough, and the glaze using a strainer."
+    ingredient_list = ["confectioner's sugar", "lemon zest", "lemon juice", "butter", "salt", "glaze"]
+    steps = doParsing(test_text, ingredient_list)
+
+    for x in steps.keys():
+        print(steps[x])
 
 
-
-
+if __name__ == '__main__':
+    main()
 
 

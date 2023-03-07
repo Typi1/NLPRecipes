@@ -237,7 +237,7 @@ def getFirstTypeBroad(children:list, typ: str):
         if typ in branch.label:
             return branch
         else:
-            res = getFirstType(branch.children, typ)
+            res = getFirstTypeBroad(branch.children, typ)
             if res != None and typ in res.label:
                 return res
             

@@ -170,7 +170,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
     if answer == "":
         return None
 
-    return "I believe this answers your question: " + answer
+    return "I believe this answers your question: " + answer + "\n"
     
 
 # print(allsteps[10])

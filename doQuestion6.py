@@ -60,7 +60,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
     if (object_of_question == "" or object_of_question == None) and "NN" in input_deps[list(input_deps[0].deps.keys())[0]].typ:
         object_of_question = input_deps[list(input_deps[0].deps.keys())[0]].text
     if object_of_question == "" or object_of_question == None:
-        return "Sorry, could you rephrase that?"
+        return None
 
     
     quantity_score = 0
@@ -81,7 +81,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
     # print(step)
     max_score = max(quantity_score, temperature_score, time_score)
     if max_score < 1:
-        return "I'm sorry, I am not sure what you mean. Could you please try rephrasing that?"
+        return None
 
     answer = ""
 
@@ -154,7 +154,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
                 answer = str(regex_minute_search.group(1)) + " minutes"
         
     if answer == "":
-        return "I'm sorry, I couldn't figure that out."
+        return None
 
     return "I believe this answers your question: " + answer
     

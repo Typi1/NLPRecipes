@@ -13,6 +13,8 @@ import transformers as tra
 import re
 import steps_parser
 
+from doQuestion6 import goal6
+
 ## FUNCTIONS FOR WEBSCRAPING
 def get_soup(url:str):
     response = requests.get(url)
@@ -215,9 +217,44 @@ seq_other_q = [
     "Question about substitution",   
 ]
 
-seq_45_q = [
-    
-
+quant_Q_list = [
+    "How many do I need?",
+    "How much do I need?",
+    "What amount of this do I need?",
+    "Around how much of this ingredient do I need for this step?",
+    "Do I use a lot of this ingredient?",
+    "Do I use a little of this ingredient?",
+    "How many cups do I need?",
+    "What should I fill my measuring cup up to?",
+    "How much should I use?"
+    ] 
+temp_Q_list = [
+    "How hot should it be?",
+    "How many degrees should it be set to?",
+    "How high do I set the oven?",
+    "What temperature should it be at?",
+    "What is the best temperature for this step?",
+    "How cold should it be?",
+    "How many degrees should I set it to?",
+    "How warm should I make it?",
+    "Should it be cool?",
+    "Question related to temperature"
+    ] 
+time_Q_list = [ 
+    "How long should I do this?",
+    "How much time should this take?",
+    "How long do I wait?",
+    "How long will this take?",
+    "How many minutes do I do this?",
+    "How much time until I do this?",
+    "For how long?",
+    "What should I set my timer to?",
+    "When will this be done?",
+    "What should I check to see if it is done?",
+    "What should it look like when I'm done?",
+    "When is it done?",
+    "When should I stop?",
+    "How long should I microwave it for?"
 ]
 
 seq_sub = [    
@@ -301,16 +338,18 @@ class RecipeBot():
         self.steps = r[1]
         self.recipe_name = r[2]
         
-        print(f"{self.name}: Thank you, please wait a moment.")
+        print(f"{self.name}: Thank you, please wait a couple minutes while we process the recipe.")
 
         # variable for what step the bot is in the recipe
         self.curr_step = 0
         
         # zero shot classification pipeline
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
+        st.download('en')
+        self.depgram = st.Pipeline('en')
         
         # REPLACE SELF.STEPS -- ETHAN
-        self.steps_data = steps_parser.doParsing(combineSteps(self.steps), self.ingredients)
+        self.steps_data = steps_parser.doParsing(self.zero_shot_pipe, self.depgram, combineSteps(self.steps), self.ingredients)
 
         temp = []
         for step_key in self.steps_data.keys():
@@ -483,12 +522,34 @@ class RecipeBot():
             if sub_score > 12:
                 return self.get_substitute(user_input)
             else:
-                # if zero shot score isn't high enough, just do a regular google search
-                return self.get_url(user_input)
+                # if zero shot score isn't high enough, check to see if question is about temp, quantity or time
+                zs_scores = {
+                    "time": self.zs_add_scores(user_input, time_Q_list),
+                    "temperature": self.zs_add_scores(user_input, temp_Q_list),
+                    "quantity": self.zs_add_scores(user_input, quant_Q_list)
+                    }
 
-        # # if the user requests a subistitution, scrape information from the web and print it.
-        # elif 's' in user_input[0]:
-        #     return self.get_substitute(user_input[1:])
+                zs_best = "time"
+                for k in zs_scores.keys():
+                    if zs_scores[k] > zs_scores[zs_best]:
+                        zs_best = k
+                        return self.get_url(user_input)
+
+                # if the best score is bigger than 10, then answer the question
+                if zs_scores[zs_best] > 10:
+                    ans = goal6(self.zero_shot_pipe, self.depgram, user_input, self.ingredients,  self.steps_data[self.curr_step + 1], zs_best)
+                    if ans == None:
+                        return self.default("confused")
+                    else:
+                        print(ans)
+                        return self.default()
+                # else check if it is a simple "What" question, do google search
+                elif "what" in user_input.lower():
+                    self.get_url(user_input)
+                # else try to differentiate a vague "how to" question with a specific "how to" question
+                else:
+                    print("4 OR 3")
+                    return self.default()
 
         # if none of the options above were identified as the task requested by the user, ask the user to type their request again   
         else:

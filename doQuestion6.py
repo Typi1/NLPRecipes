@@ -78,14 +78,14 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
             quantity_score = 100
             temperature_score = 0
             time_score = 0
-        elif Q_type.lower() == "time":
-            quantity_score = 0
-            temperature_score = 0
-            time_score = 100
-        else:
+        elif Q_type.lower() == "temperature":
             quantity_score = 0
             temperature_score = 100
             time_score = 0
+        else:
+            quantity_score = 0
+            temperature_score = 0
+            time_score = 100
 
     # print(pipe2(question, candidate_labels=["how much", "what temperature", "for how long", "when"]))
     # print("quantity score: " + str(quantity_score))

@@ -2,6 +2,7 @@ import re
 import stanza as st
 import transformers as tra
 import steps_parser
+from typing import Optional
 
 # INPUTS:
 # pipe2 is the zero-shot pipeline, 
@@ -10,7 +11,7 @@ import steps_parser
 # step is the Step data structure from steps_parser. it should be indexable from self.steps_data NOTE that is a dictionary, so index by step number. indexes start at 1 for that
 # OUTPUT:
 # a string with either an answer string or a failure state answer
-def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_parser.Step):
+def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_parser.Step, Q_type: Optional[str] = None):
     quantity_Q_list = ["How many do I need?",
                        "How much do I need?",
                        "What amount of this do I need?",
@@ -62,16 +63,29 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
     if object_of_question == "" or object_of_question == None:
         return None
 
-    
-    quantity_score = 0
-    for q in quantity_Q_list:
-        quantity_score += pipe2(question, q)['scores'][0]
-    temperature_score = 0
-    for q in temperature_Q_list:
-        temperature_score += pipe2(question, q)['scores'][0]
-    time_score = 0
-    for q in time_Q_list:
-        time_score += pipe2(question, q)['scores'][0]
+    if Q_type == None:
+        quantity_score = 0
+        for q in quantity_Q_list:
+            quantity_score += pipe2(question, q)['scores'][0]
+        temperature_score = 0
+        for q in temperature_Q_list:
+            temperature_score += pipe2(question, q)['scores'][0]
+        time_score = 0
+        for q in time_Q_list:
+            time_score += pipe2(question, q)['scores'][0]
+    else:
+        if Q_type.lower() == "quantity":
+            quantity_score = 100
+            temperature_score = 0
+            time_score = 0
+        elif Q_type.lower() == "time":
+            quantity_score = 0
+            temperature_score = 0
+            time_score = 100
+        else:
+            quantity_score = 0
+            temperature_score = 100
+            time_score = 0
 
     # print(pipe2(question, candidate_labels=["how much", "what temperature", "for how long", "when"]))
     # print("quantity score: " + str(quantity_score))

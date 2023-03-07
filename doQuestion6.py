@@ -75,7 +75,9 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
             time_score += pipe2(question, q)['scores'][0]
     else:
         if Q_type.lower() == "quantity":
-            quantity_score = 100
+            quantity_score = 0
+            for q in quantity_Q_list:
+                quantity_score += pipe2(question, q)['scores'][0]
             temperature_score = 0
             time_score = 0
         elif Q_type.lower() == "temperature":

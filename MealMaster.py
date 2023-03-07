@@ -12,7 +12,6 @@ import requests
 import transformers as tra
 import re
 import steps_parser
-
 from doQuestion6 import goal6
 
 ## FUNCTIONS FOR WEBSCRAPING
@@ -157,7 +156,14 @@ seq_next = [
     "Let's move forward with the following step.",    
     "What's the next instruction in the recipe?",    
     "What's the next step on our recipe?",    
-    "Can we move on to the next recipe part?"
+    "Can we move on to the next recipe part?",
+    # "what is the last step of the recipe?",
+    # "what is the step at the end of the recipe?",
+    # "go to the final step",
+    # "what is the closing step?",
+    # "take me to the very last step",
+    # "go to the end step",
+    # "what is the very end step?"]
 ]
 
 seq_prev = [    
@@ -181,10 +187,12 @@ seq_prev = [
     "Return to the preceding step",    
     "Let's reverse to the last instruction",       
     "Can we step back one instruction?",
-    "Take me to the last step"]
+    # "what was the last step?"
+    ]
 
 seq_rep = [
     "Repeat the current step please.",
+    "Repeat please",
     "Repeat the recipe step",
     "Could you say the current step again?",  
     "Please repeat the current instruction.",    
@@ -202,8 +210,8 @@ seq_rep = [
      "Please repeat the current step.",    
      "Can you repeat the current step, please?",    
      "Say the current instruction again, please.",
-     "Repeat the step.",
-     "Say the last recipe step again."]
+    #  "Repeat the step."
+     ]
      
 seq_other_q = [    
     "Question that starts with 'How to'",
@@ -214,7 +222,12 @@ seq_other_q = [
     "Specific Cooking Question",
     "Cooking Question",
     # I added one of the subistitution questions here
-    "Question about substitution",   
+    "Question about substitution",
+    "How do I do that?",
+    "How do I use that?",
+    "Question about temperature",
+    "Question about amount",
+    "Question about time"
 ]
 
 quant_Q_list = [
@@ -226,8 +239,8 @@ quant_Q_list = [
     "Do I use a little of this ingredient?",
     "How many cups do I need?",
     "What should I fill my measuring cup up to?",
-    "How much should I use?"
-    ] 
+    "How much should I use?"] 
+
 temp_Q_list = [
     "How hot should it be?",
     "How many degrees should it be set to?",
@@ -238,8 +251,8 @@ temp_Q_list = [
     "How many degrees should I set it to?",
     "How warm should I make it?",
     "Should it be cool?",
-    "Question related to temperature"
-    ] 
+    "Question related to temperature"] 
+
 time_Q_list = [ 
     "How long should I do this?",
     "How much time should this take?",
@@ -254,8 +267,7 @@ time_Q_list = [
     "What should it look like when I'm done?",
     "When is it done?",
     "When should I stop?",
-    "How long should I microwave it for?"
-]
+    "How long should I microwave it for?"]
 
 seq_sub = [    
     "Question about replacement",    
@@ -338,7 +350,7 @@ class RecipeBot():
         self.steps = r[1]
         self.recipe_name = r[2]
         
-        print(f"{self.name}: Thank you, please wait a couple minutes while we process the recipe.")
+        print(f"{self.name}: Thank you, please wait a moment while we process the recipe.")
 
         # variable for what step the bot is in the recipe
         self.curr_step = 0
@@ -347,10 +359,9 @@ class RecipeBot():
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
         st.download('en')
         self.depgram = st.Pipeline('en')
-        
+
         # REPLACE SELF.STEPS -- ETHAN
         self.steps_data = steps_parser.doParsing(self.zero_shot_pipe, self.depgram, combineSteps(self.steps), self.ingredients)
-
         temp = []
         for step_key in self.steps_data.keys():
             step = self.steps_data[step_key]
@@ -487,6 +498,12 @@ class RecipeBot():
                 return self.print_step()
             
         elif zs_best == "next_score":
+            # Check if the user asked for the very last step of the recipe
+            print(user_input.lower())
+            if "last" in user_input.lower() or "final" in user_input.lower() or "closing" in user_input.lower() or "end" in user_input.lower():
+                # If so, update current step and call function that prints current step
+                self.curr_step = len(self.steps)-1
+                return self.print_step()
             # Checks to see if there is a next step
             if self.curr_step + 2 > len(self.steps):
                 # If not, that means we are done reading the recipe steps and can move on to the "done" state of the self.default function
@@ -528,12 +545,10 @@ class RecipeBot():
                     "temperature": self.zs_add_scores(user_input, temp_Q_list),
                     "quantity": self.zs_add_scores(user_input, quant_Q_list)
                     }
-
                 zs_best = "time"
                 for k in zs_scores.keys():
                     if zs_scores[k] > zs_scores[zs_best]:
                         zs_best = k
-                        return self.get_url(user_input)
 
                 # if the best score is bigger than 10, then answer the question
                 if zs_scores[zs_best] > 10:
@@ -544,7 +559,7 @@ class RecipeBot():
                         print(ans)
                         return self.default()
                 # else check if it is a simple "What" question, do google search
-                elif "what" in user_input.lower():
+                elif re.search("^[Ww]hat\s",user_input.lower()):
                     self.get_url(user_input)
                 # else try to differentiate a vague "how to" question with a specific "how to" question
                 else:

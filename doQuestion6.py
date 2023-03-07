@@ -75,9 +75,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
             time_score += pipe2(question, q)['scores'][0]
     else:
         if Q_type.lower() == "quantity":
-            quantity_score = 0
-            for q in quantity_Q_list:
-                quantity_score += pipe2(question, q)['scores'][0]
+            quantity_score = 100
             temperature_score = 0
             time_score = 0
         elif Q_type.lower() == "temperature":
@@ -113,7 +111,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
         is_quantity = pipe2(max_ingredient_score[0], "amount")['scores'][0]
         # print(is_quantity)
 
-        if max_ingredient_score[1] < 0.4 or is_quantity < 0.4:
+        if max_ingredient_score[1] < 0.4 or is_quantity < 0.9:
             ingredient_ranking = []
             if type(canon_ingredients[0]) != list:
                 canon_ingredients = [canon_ingredients]

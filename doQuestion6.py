@@ -111,8 +111,8 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
         # print(max_ingredient_score)
         is_quantity = pipe2(max_ingredient_score[0], "amount")['scores'][0]
         # print(is_quantity)
-        print(ingredient_ranking)
-        if max_ingredient_score[1] < 0.4 or is_quantity < 0.9:
+
+        if max_ingredient_score[1] < 0.4 or is_quantity < 0.4:
             ingredient_ranking = []
             if type(canon_ingredients[0]) != list:
                 canon_ingredients = [canon_ingredients]

@@ -4,6 +4,49 @@ import transformers as tra
 import steps_parser
 from typing import Optional
 
+
+def getFirstTypeBroad(children:list, typ: str):
+    res = None
+    for branch in children:
+        if typ in branch.label:
+            return branch
+        else:
+            res = getFirstTypeBroad(branch.children, typ)
+            if res != None and typ in res.label:
+                return res
+            
+    return res
+
+def getAllOfTypesNew(children:list, typs: list):
+    res = []
+
+    if len(children) == 1 and children[0].label == str(children[0]):
+        return res
+    
+    # print("NN" in typs)
+
+    for branch in children:
+        if "NN" in typs and branch.label == "VP": 
+            
+            temp = getAllOfTypesNew(branch.children, typs)
+            if temp != []:
+                res += temp # res.append(temp)
+            continue
+        if any(branch.label == typ for typ in typs):
+            if len(branch.children) == 1 and branch.children[0].label == str(branch.children[0]):
+                res.append(branch.children[0].label)
+            else:
+                res.append(steps_parser.constituency_to_str(branch))
+        # special case for collecting compound nouns 
+        elif "NN" in typs and branch.label == "NP" and steps_parser.isComboNounPhrase(branch):
+            res.append(steps_parser.constituency_to_str(branch))
+        else:
+            temp = getAllOfTypesNew(branch.children, typs)
+            if temp != []:
+                res += temp # res.append(temp)
+
+    return res
+
 # INPUTS:
 # pipe2 is the zero-shot pipeline, 
 # depgram is the stanza output (should be self.depgram), 
@@ -97,11 +140,17 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
     if max_score < 1:
         return None
 
+    step_constii = depgram(step.original_text).sentences[0].constituency
+    all_step_nouns = getAllOfTypesNew(step_constii.children, ["NN"])
+    all_step_adj = getAllOfTypesNew(step_constii.children, ["JJ", "JJR", "JJS"])
+
+
+
     answer = ""
 
     # for quantity
     if max_score == quantity_score:
-        print("QUANTITY")
+        # print("QUANTITY")
         ingredient_ranking = []
         for ingr in step.ingredients:
             pipe_res = pipe2(step.ingredients[ingr][0], object_of_question)
@@ -109,31 +158,45 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
         ingredient_ranking.sort(key=lambda x: x[1], reverse=True)
         max_ingredient_score = ingredient_ranking[0]
         # print(max_ingredient_score)
-        is_quantity = pipe2(max_ingredient_score[0], "amount")['scores'][0]
+        is_quantity = re.search("\sof\s", max_ingredient_score[0]) != None or getFirstTypeBroad(depgram(max_ingredient_score[0]).sentences[0].constituency.children, "CD") != None#pipe2(max_ingredient_score[0], "number")['scores'][0] > 0.4 
         # print(is_quantity)
 
-        if max_ingredient_score[1] < 0.4 or is_quantity < 0.4:
+        if max_ingredient_score[1] < 0.4 or not is_quantity:
             ingredient_ranking = []
             if type(canon_ingredients[0]) != list:
                 canon_ingredients = [canon_ingredients]
-            print(canon_ingredients)
+            # print(canon_ingredients)
             for canon_ingr in canon_ingredients[0]:
+                test_docr = depgram(canon_ingr)
+                deep = steps_parser.getDependency(test_docr.sentences[0].dependencies)[0]
+                # for dd in deep:
+                #     print(deep[dd])
+                # print(deep[list(deep[0].deps.keys())[0]])
+                temp = deep[list(deep[0].deps.keys())[0]]
+                for dpk in list(temp.deps.keys()):
+                    # print(temp.deps)
+                    # print(dpk)
+                    if temp.deps[dpk][2] == "conj":
+                        # print(temp.deps[dpk][0])
+                        temp = deep[temp.deps[dpk][0]]
+                        break
                 pipe_res = pipe2(canon_ingr, object_of_question)
+                pipe_res2 = pipe2(temp.text, object_of_question)
                 # print(canon_ingr)
                 # print(pipe_res)
-                ingredient_ranking.append((canon_ingr, pipe_res['scores'][0]))
+                ingredient_ranking.append((canon_ingr, max(pipe_res['scores'][0], pipe_res2['scores'][0] * 2)))
             ingredient_ranking.sort(key=lambda x: x[1], reverse=True)
-            print(ingredient_ranking)
+            # print(ingredient_ranking)
             
             while re.search("\d", ingredient_ranking[0][0]) == None:
                 ingredient_ranking = ingredient_ranking[1:]
 
             max_ingredient_score = ingredient_ranking[0]
-        print(max_ingredient_score)
+        # print(max_ingredient_score)
         answer = max_ingredient_score[0]
     # for temperature
     elif max_score == temperature_score:
-        print("TEMPERATURE")
+        # print("TEMPERATURE")
         detail_ranking = []
         for detail_id in step.details.keys():
             detail = step.details[detail_id]
@@ -141,15 +204,38 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
             detail_ranking.append((detail[1], pipe_res['scores'][0]))
         detail_ranking.sort(key=lambda x: x[1], reverse=True)
         # print(detail_ranking)
-        if len(detail_ranking) > 0 and detail_ranking[0][1] > 0.6: answer = detail_ranking[0][0]
+        if len(detail_ranking) > 0 and detail_ranking[0][1] > 0.6 and not detail_ranking[0][0].lower() == "temperature": 
+            # print("??")
+            answer = detail_ranking[0][0]
         elif len(detail_ranking) < 1 or detail_ranking[0][1] < 0.6:
             regex_minute_search = re.search("(\d+)\s+degrees", step.original_text)
             if regex_minute_search != None:
                 answer = str(regex_minute_search.group(1)) + " degrees"
-        
+            
+            if answer == "":
+                temperature_noun_ranking = []
+                for nn in all_step_nouns:
+                    pipe_res = pipe2(nn, "temperature")
+                    temperature_noun_ranking.append((nn, pipe_res['scores'][0]))
+                temperature_noun_ranking.sort(key=lambda x: x[1], reverse=True)
+                if len(temperature_noun_ranking) > 0 and temperature_noun_ranking[0][1] > 0.7:
+                    # print("???")
+                    answer = temperature_noun_ranking[0][0]
+                
+            if answer == "":
+                temperature_adj_ranking = []
+                for aa in all_step_adj:
+                    pipe_res = pipe2(aa, "temperature")
+                    temperature_adj_ranking.append((aa, pipe_res['scores'][0]))
+                temperature_adj_ranking.sort(key=lambda x: x[1], reverse=True)
+                if len(temperature_adj_ranking) > 0 and temperature_adj_ranking[0][1] > 0.7:
+                    # print("????")
+                    answer = temperature_adj_ranking[0][0]
+        if answer == "" and "room temp" in step.original_text.lower():
+            return "room temperature"
     # for time
     elif max_score == time_score:
-        print("TIME")
+        # print("TIME")
         detail_ranking = []
         for detail_id in step.details.keys():
             detail = step.details[detail_id]

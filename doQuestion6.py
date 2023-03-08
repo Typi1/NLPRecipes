@@ -101,6 +101,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
 
     # for quantity
     if max_score == quantity_score:
+        print("QUANTITY")
         ingredient_ranking = []
         for ingr in step.ingredients:
             pipe_res = pipe2(step.ingredients[ingr][0], object_of_question)
@@ -110,25 +111,29 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
         # print(max_ingredient_score)
         is_quantity = pipe2(max_ingredient_score[0], "amount")['scores'][0]
         # print(is_quantity)
-
-        if max_ingredient_score[1] < 0.4 or is_quantity < 0.4:
+        print(ingredient_ranking)
+        if max_ingredient_score[1] < 0.4 or is_quantity < 0.9:
             ingredient_ranking = []
             if type(canon_ingredients[0]) != list:
                 canon_ingredients = [canon_ingredients]
+            print(canon_ingredients)
             for canon_ingr in canon_ingredients[0]:
                 pipe_res = pipe2(canon_ingr, object_of_question)
                 # print(canon_ingr)
                 # print(pipe_res)
                 ingredient_ranking.append((canon_ingr, pipe_res['scores'][0]))
             ingredient_ranking.sort(key=lambda x: x[1], reverse=True)
+            print(ingredient_ranking)
             
             while re.search("\d", ingredient_ranking[0][0]) == None:
                 ingredient_ranking = ingredient_ranking[1:]
 
             max_ingredient_score = ingredient_ranking[0]
+        print(max_ingredient_score)
         answer = max_ingredient_score[0]
     # for temperature
     elif max_score == temperature_score:
+        print("TEMPERATURE")
         detail_ranking = []
         for detail_id in step.details.keys():
             detail = step.details[detail_id]
@@ -144,6 +149,7 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
         
     # for time
     elif max_score == time_score:
+        print("TIME")
         detail_ranking = []
         for detail_id in step.details.keys():
             detail = step.details[detail_id]

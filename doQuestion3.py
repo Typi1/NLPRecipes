@@ -15,9 +15,9 @@ def doQ3(pipe2, depgram, user_input:str, step:steps_parser.Step):
     # get the action of the user input. This should be a how-type question. defaults to the root action
     parsed_input = depgram(user_input)
     dependency = steps_parser.getDependency(parsed_input.sentences[0].dependencies)[0]
-    print(dependency)
+    # print(dependency)
     user_head = getHeadWord(dependency)
-    print(user_head)
+    # print(user_head)
     if "VB" in user_head.typ:
         base_action = user_head.text
     else:
@@ -31,8 +31,8 @@ def doQ3(pipe2, depgram, user_input:str, step:steps_parser.Step):
     for action_id in step.actions:
         
         action = step.actions[action_id]
-        print(action)
-        print(base_action)
+        # print(action)
+        # print(base_action)
         action_score = pipe2(base_action, candidate_labels=action[0])['scores'][0]
 
         viable_action_phrases.append((action_score, action[1]))
@@ -46,4 +46,4 @@ def doQ3(pipe2, depgram, user_input:str, step:steps_parser.Step):
 
     # print(viable_action_phrases[0][1])
 
-    return("No worries. I found a reference for you." + viable_action_phrases[0][1] + " HI JUST CHANGE THE OUTPUT OF THIS TO WORK WITH THE URL GETTING OR SOMETHING")
+    return viable_action_phrases[0][1]

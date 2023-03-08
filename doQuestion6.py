@@ -191,10 +191,10 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
             ingredient_ranking.sort(key=lambda x: x[1], reverse=True)
             # print(ingredient_ranking)
             
-            while re.search("\d", ingredient_ranking[0][0]) == None:
-                ingredient_ranking = ingredient_ranking[1:]
+            # while re.search("\d", ingredient_ranking[0][0]) == None:
+            #     ingredient_ranking = ingredient_ranking[1:]
 
-            max_ingredient_score = ingredient_ranking[0]
+            # max_ingredient_score = ingredient_ranking[0]
         # print(max_ingredient_score)
         answer = max_ingredient_score[0]
     # for temperature

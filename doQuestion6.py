@@ -184,7 +184,10 @@ def goal6(pipe2, depgram, question: str, canon_ingredients:list,  step:steps_par
                 pipe_res2 = pipe2(temp.text, object_of_question)
                 # print(canon_ingr)
                 # print(pipe_res)
-                ingredient_ranking.append((canon_ingr, max(pipe_res['scores'][0], pipe_res2['scores'][0] * 2)))
+                weight = 1
+                if re.search("\d", canon_ingr) != None:
+                    weight = 1.2
+                ingredient_ranking.append((canon_ingr, max(pipe_res['scores'][0] * weight, pipe_res2['scores'][0] * 2 * weight)))
             ingredient_ranking.sort(key=lambda x: x[1], reverse=True)
             # print(ingredient_ranking)
             

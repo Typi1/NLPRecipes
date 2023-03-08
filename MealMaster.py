@@ -4,8 +4,6 @@ from selenium.webdriver.chrome.options import Options
 from selenium.webdriver.chrome.service import Service
 from webdriver_manager.chrome import ChromeDriverManager
 import stanza as st
-from typing import Optional
-from enum import Enum
 from difflib import SequenceMatcher as sm
 import json
 import requests
@@ -109,26 +107,13 @@ def combineSteps(steps:list):
 
 # LISTS FOR ZERO SHOT AND DICTIONARIES FOR HARD CODED OPERATIONS
 seq_ing = [    
-    "Can you share the list of ingredients?",    
-    "What are the ingredients used?",    
-    "Could you please provide the ingredients?",    
-    "May I know what the ingredients are?",    
-    "What's in this dish?",    
-    "Ingredients, please?",    
-    "What goes into making this?",   
-    "Can you show me the ingredient list?",    
-    "Let me see the instructions list.",    
-    "Can we go to the recipe steps?",
-    "I'd love to know what ingredients are in this recipe.",
+    "SHow me the ingredients list",    
+    "What are the ingredients in this dish",     
+    "May I know what the list of ingredients is?",    
+    "What is in this dish?",   
+    "ingredients",          
     "Can you tell me the components of this dish?",
-    "What are the constituent parts of this meal?",
-    "Please share the list of components for this recipe.",
-    "Could you provide me with a list of recipe instructions?",
-    "show me the recipe steps",
-    "What are the contents of this dish?",
-    "I'm curious about what goes into making this, could you tell me?",
-    "Do you have a list of what's in this recipe?",
-    "Can you let me know what ingredients are used in this dish?"]
+    "contents of this dish"]
 
 seq_num = [
     "Has a number",
@@ -141,28 +126,17 @@ seq_num = [
 seq_next = [
     "Proceed to the following step.",
     "Let's move on to the next step.",    
-    "Next step Please",
     "Can we move forward with the next step?",    
     "Advance to the next step.",    
-    "Let's continue with the next step.",    
-    "Can we continue reading the recipe steps?",    
+    "Let's continue with the next step.",     
     "Move on to the next step.",    
     "Tell me the following step.",    
     "Continue reading the recipe steps.",
-    "Next step.",    
-    "Proceed to the subsequent step.",    
-    "Let's advance to the following step.",    
+    "Proceed to the subsequent step.",       
     "What's the subsequent step in the recipe?",      
-    "What comes after this step?",    
-    "Let's move forward with the following step.",    
-    "What's the next instruction in the recipe?",     
-    "Can we move on to the next recipe part?",
-    "what is the last step of the recipe?",
-    "end of the recipe",
-    "Final step",
-    "what is the closing step?",
-    "take me to the very last step",
-    "end step"]
+    "What comes after this step?",            
+    "Can we move on to the next recipe part?"
+    ]
 
 seq_prev = [    
     "Return to the previous step",    
@@ -175,65 +149,67 @@ seq_prev = [
     "Can we go back one step?",    
     "Let's backtrack to the previous step",    
     "Reverse to the previous step",    
-    "Retreat to the last instruction",
     "Let's step back to the previous instruction",    
     "Can we move back to the last step?",    
     "Let's go back one step",    
     "Let's revisit the previous instruction",    
-    "Take a step back to the last step",    
     "Can we backtrack to the previous instruction?",    
-    "Return to the preceding step",    
-    "Let's reverse to the last instruction",       
+    "Return to the preceding step",       
     "Can we step back one instruction?"
     ]
 
 seq_rep = [
-    "Repeat the current step please.",
     "Repeat please",
-    "Repeat the recipe step",
     "Could you say the current step again?",  
     "Please repeat the current instruction.",    
     "Can you say that step again?",    
     "Repeat the current recipe step.",    
     "Say the current step once more please.",    
-    "Could you repeat the current instruction?",       
-    "Let's repeat the current step.",    
-    "Can you restate the current step?",    
+    "Could you repeat the current instruction?",          
     "Could you go over the current step again?",    
     "Repeat the current step one more time.",          
-    "Say the current step one more time, please.",          
     "Could you go over the current step once more?",    
     "Can you restate the current instruction?",    
-    "Please repeat the current step.",    
-    "Can you repeat the current step, please?",    
+    "Please repeat the current step.",     
     "Say the current instruction again, please.",
-    "Repeat the step."
+    "Repeat the step.",
+    "Can we go to the recipe steps?",
+    "Could you provide me with a list of recipe instructions?",
+    "show me the list of recipe steps",
+    "instructions list",
+    "take me to the recipe steps",
+    "go to the list of instructions"
     ]
      
 seq_other_q = [  
-    "Question that starts with 'How to'",
-    "Question that starts with 'How do I use'",
-    "Question that starts with 'How long'", 
-    "Question that starts with 'What is a'",   
+    # "Question that starts with 'How to'",
+    # "Question that starts with 'How do I use'",
+    # "Question that starts with 'How long'", 
+    "Question that starts with 'what'",
+    "Questions that start with 'how'",   
     "How to",
     "How do I",
     "How long", 
     "What is a",
-    "What are"
+    "What are",
     "Vague Cooking Question",
     "Specific Cooking Question",
     "Cooking Question",
     # I added one of the substitution questions here
     "Question about substitution",
-    "substitute"
+    "substitute",
     "How do I do that?",
     "How do I use that?",
     "Question about temperature",
     "Question about amount",
     "Question about time",
-    "temperature",
-    "quantity",
-    "time"
+    # "temperature",
+    # "quantity",
+    # "time",
+    "How hot",
+    "How cold",
+    "How much",
+    "How many"
 ]
 
 quant_Q_list = [
@@ -245,19 +221,16 @@ quant_Q_list = [
     "Do I use a little of this ingredient?",
     "How many cups do I need?",
     "What should I fill my measuring cup up to?",
-    "How much should I use?"] 
+    "How many",
+    "How much should I use?",
+    "Questions related to amount"] 
 
 temp_Q_list = [
-    "How hot should it be?",
     "How many degrees should it be set to?",
-    "How high do I set the oven?",
     "What temperature should it be at?",
-    "What is the best temperature for this step?",
-    "How cold should it be?",
-    "How many degrees should I set it to?",
-    "How warm should I make it?",
-    "Should it be cool?",
-    "Question related to temperature"] 
+    "Question related to temperature",
+    "hot",
+    "cold"] 
 
 time_Q_list = [ 
     "How long should I do this?",
@@ -276,193 +249,17 @@ time_Q_list = [
     "How long should I microwave it for?"]
 
 seq_sub = [    
-    "Question about replacement",    
-    "Question about swapping",    
-    "Question about replacing",    
-    "Question about exchanging",       
-    "Question about switching",    
-    "Question about altering",
-    "Question about substitution",
+    "replacement",    
+    "swapping",    
+    "replacing",    
+    "exchanging",       
+    "switching",    
+    "altering",
+    "substitution",
     "Question about using an alternative",
     "Question about changing",
     "Question about finding a replacement",
     ]
-
-# seq_ing = [    
-#     "Can you share the list of ingredients?",    
-#     "What are the ingredients used?",    
-#     "Could you please provide the ingredients?",    
-#     "May I know what the ingredients are?",    
-#     "What's in this dish?",    
-#     "Ingredients, please?",    
-#     "What goes into making this?",   
-#     "Can you show me the ingredient list?",    
-#     "Let me see the list of ingredients.",    
-#     "Can we go to the ingredient list?",
-#     "I'd love to know what ingredients are in this recipe.",
-#     "Can you tell me the components of this dish?",
-#     "What are the constituent parts of this meal?",
-#     "Please share the list of components for this recipe.",
-#     "Could you provide me with a list of what's in this?",
-#     "May I have a rundown of the ingredients?",
-#     "What are the contents of this dish?",
-#     "I'm curious about what goes into making this, could you tell me?",
-#     "Do you have a list of what's in this recipe?",
-#     "Can you let me know what ingredients are used in this dish?"]
-
-# seq_num = [
-#     "Has a number",
-#     "Asks to move on to a numbered step",
-#     "Has numeric label",      
-#     "Has numbered steps?",    
-#     "There is a step with a number",    
-#     "numbered item"]
-
-# seq_next = [
-#     "Proceed to the following step.",
-#     "Let's move on to the next step.",    
-#     "Next step Please",
-#     "Can we move forward with the next step?",    
-#     "Advance to the next step.",    
-#     "Let's continue with the next step.",    
-#     "Can we continue reading the recipe steps?",    
-#     "Move on to the next step.",    
-#     "Tell me the following step.",    
-#     "Continue reading the recipe steps.",
-#     "Next step.",    
-#     "Proceed to the subsequent step.",    
-#     "Let's advance to the following step.",    
-#     "What's the subsequent step in the recipe?",   
-#     "Can you guide me to the next step?",    
-#     "What comes after this step?",    
-#     "Let's move forward with the following step.",    
-#     "What's the next instruction in the recipe?",    
-#     "What's the next step on our recipe?",    
-#     "Can we move on to the next recipe part?",
-#     # "what is the last step of the recipe?",
-#     # "what is the step at the end of the recipe?",
-#     # "go to the final step",
-#     # "what is the closing step?",
-#     # "take me to the very last step",
-#     # "go to the end step",
-#     # "what is the very end step?"]
-# ]
-
-# seq_prev = [    
-#     "Return to the previous step",    
-#     "Step back to the last instruction",    
-#     "Go back one step",    
-#     "What was the last step again?",    
-#     "Revisit the previous step",
-#     "Repeat the last step",    
-#     "Move back to the last step",    
-#     "Can we go back one step?",    
-#     "Let's backtrack to the previous step",    
-#     "Reverse to the previous step",    
-#     "Retreat to the last instruction",
-#     "Let's step back to the previous instruction",    
-#     "Can we move back to the last step?",    
-#     "Let's go back one step",    
-#     "Let's revisit the previous instruction",    
-#     "Take a step back to the last step",    
-#     "Can we backtrack to the previous instruction?",    
-#     "Return to the preceding step",    
-#     "Let's reverse to the last instruction",       
-#     "Can we step back one instruction?",
-#     # "what was the last step?"
-#     ]
-
-# seq_rep = [
-#     "Repeat the current step please.",
-#     "Repeat please",
-#     "Repeat the recipe step",
-#     "Could you say the current step again?",  
-#     "Please repeat the current instruction.",    
-#     "Can you say that step again?",    
-#     "Repeat the current recipe step.",    
-#     "Say the current step once more please.",    
-#     "Could you repeat the current instruction?",       
-#     "Let's repeat the current step.",    
-#     "Can you restate the current step?",    
-#     "Could you go over the current step again?",    
-#     "Repeat the current step one more time.",          
-#     "Say the current step one more time, please.",          
-#      "Could you go over the current step once more?",    
-#      "Can you restate the current instruction?",    
-#      "Please repeat the current step.",    
-#      "Can you repeat the current step, please?",    
-#      "Say the current instruction again, please.",
-#     #  "Repeat the step."
-#      ]
-     
-# seq_other_q = [    
-#     "Question that starts with 'How to'",
-#     "Question that starts with 'How do I use'",
-#     "Question that starts with 'How long'", 
-#     "Question that starts with 'What is a'",  
-#     "Vague Cooking Question",
-#     "Specific Cooking Question",
-#     "Cooking Question",
-#     # I added one of the subistitution questions here
-#     "Question about substitution",
-#     "How do I do that?",
-#     "How do I use that?",
-#     "Question about temperature",
-#     "Question about amount",
-#     "Question about time"
-# ]
-
-# quant_Q_list = [
-#     "How many do I need?",
-#     "How much do I need?",
-#     "What amount of this do I need?",
-#     "Around how much of this ingredient do I need for this step?",
-#     "Do I use a lot of this ingredient?",
-#     "Do I use a little of this ingredient?",
-#     "How many cups do I need?",
-#     "What should I fill my measuring cup up to?",
-#     "How much should I use?"] 
-
-# temp_Q_list = [
-#     "How hot should it be?",
-#     "How many degrees should it be set to?",
-#     "How high do I set the oven?",
-#     "What temperature should it be at?",
-#     "What is the best temperature for this step?",
-#     "How cold should it be?",
-#     "How many degrees should I set it to?",
-#     "How warm should I make it?",
-#     "Should it be cool?",
-#     "Question related to temperature"] 
-
-# time_Q_list = [ 
-#     "How long should I do this?",
-#     "How much time should this take?",
-#     "How long do I wait?",
-#     "How long will this take?",
-#     "How many minutes do I do this?",
-#     "How much time until I do this?",
-#     "For how long?",
-#     "What should I set my timer to?",
-#     "When will this be done?",
-#     "What should I check to see if it is done?",
-#     "What should it look like when I'm done?",
-#     "When is it done?",
-#     "When should I stop?",
-#     "How long should I microwave it for?"]
-
-# seq_sub = [    
-#     "Question about replacement",    
-#     "Question about swapping",    
-#     "Question about replacing",    
-#     "Question about exchanging",       
-#     "Question about switching",    
-#     "Question about altering",
-#     "Question about substitution",
-#     "Question about using an alternative",
-#     "Question about changing",
-#     "Question about finding a replacement",
-#     ]
 
 word_num_dic = {
     "one": 1,
@@ -561,6 +358,10 @@ class RecipeBot():
         self.zero_shot_pipe = tra.pipeline(task="zero-shot-classification",model="facebook/bart-large-mnli")
         st.download('en')
         self.depgram = st.Pipeline('en')
+        
+        self.chrome_options = Options()
+        self.chrome_options.add_argument("--headless")
+        self.driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=self.chrome_options)
 
         # REPLACE SELF.STEPS -- ETHAN
         self.steps_data = steps_parser.doParsing(self.zero_shot_pipe, self.depgram, combineSteps(self.steps), self.ingredients)
@@ -574,6 +375,26 @@ class RecipeBot():
         print(f"{self.name}: Alright, '{self.recipe_name}' has been booted up! What do you want to do?")
         self.begin_conversation()
 
+    def end_conversation(self):
+        r = None
+        # This loop forces the user to say yes or no
+        while not re.search("^yes", r.lower()) and not re.search("^no", r.lower()):
+            q = "Looks like we went through the entire recipe, anything else I can do for you? (Yes/No)\n"
+            print(f"{self.name}: {q}")
+
+            r = input("User: ")
+            print("\n")
+            
+            if not re.search("^yes", r.lower()) and not re.search("^no", r.lower()):
+                print(f"{self.name}: Sorry, '{r}' is not a valid input")
+
+
+        if re.search("^yes", r.lower()): 
+            return self.default()
+        else:
+            # end bot
+            print(f"{self.name}: Sounds good, enjoy your meal!\n")
+            return
     def begin_conversation(self):
         r = None
         # This loop forces the user to either start with the ingredient list or recipe steps
@@ -606,19 +427,31 @@ class RecipeBot():
 
         # state will equal "done" if all recipe steps have been printed. If that's the case, ask the usr for any last requests and finish the program if otherwise
         elif state == "done":
-            q = "Looks like we went through the entire recipe, anything else I can do for you?\n"
+            q = "Looks like we went through the entire recipe, anything else I can do for you? (Yes/No)\n"
             print(f"{self.name}: {q}")
-            
             r = input("User: ")
             print("\n")
-            if not r: r = "No thank you"
-
-            zs_label = self.zs_with_q(q, r, ["User says no or thank you", "User asks a Question", "User says an Imperative sentence", "User says yes"])
-            if zs_label == "User says no or thank you":
+            if re.search("^no", r.lower()):
                 print(f"{self.name}: Sounds good, enjoy your meal!\n")
                 return
+            elif re.search("^yes", r.lower()):
+                # if "first" is false and print_ingredients wasn't called by typing 1, then the user will want to see the next step
+                self.default()
             else:
                 return self.interpret(r)
+            # q = "Looks like we went through the entire recipe, anything else I can do for you?\n"
+            # print(f"{self.name}: {q}")
+            
+            # r = input("User: ")
+            # print("\n")
+            # if not r: r = "No thank you"
+
+            # zs_label = self.zs_with_q(q, r, ["User says no or thank you", "User asks a Question", "User says an Imperative sentence", "User says yes"])
+            # if zs_label == "User says no or thank you":
+            #     print(f"{self.name}: Sounds good, enjoy your meal!\n")
+            #     return
+            # else:
+            #     return self.interpret(r)
 
         # state will equal this if the user didn't type anything
         elif state == "go_to_nothing_state":
@@ -661,9 +494,19 @@ class RecipeBot():
             if zs_scores[k] > zs_scores[zs_best]:
                 zs_best = k
         
+        # # TESTING
+        # print(zs_best)
+        # print(zs_scores[zs_best])
+        # print(zs_scores["other_question_score"])
+
+        if "last " in user_input.lower() or "final " in user_input.lower() or "closing " in user_input.lower() or " end" in user_input.lower():
+                # If so, update current step and call function that prints current step
+                self.curr_step = len(self.steps)-1
+                return self.print_step()
+
         if zs_scores[zs_best] < 10 and zs_best != "other_question_score":
             return self.default("confused")
-        
+
          # If the user asks to go to a specific step
          # in this case, the best performance was achieved when we ignored the best scorer and 
          # only considered if the score for "num_score" was above a certain threshold
@@ -701,12 +544,6 @@ class RecipeBot():
                 return self.print_step()
             
         elif zs_best == "next_score":
-            # Check if the user asked for the very last step of the recipe
-            print(user_input.lower())
-            if " last " in user_input.lower() or " final " in user_input.lower() or " closing " in user_input.lower() or " end " in user_input.lower():
-                # If so, update current step and call function that prints current step
-                self.curr_step = len(self.steps)-1
-                return self.print_step()
             # Checks to see if there is a next step
             if self.curr_step + 2 > len(self.steps):
                 # If not, that means we are done reading the recipe steps and can move on to the "done" state of the self.default function
@@ -741,7 +578,8 @@ class RecipeBot():
         elif zs_best == "other_question_score":
             # checking to see if the question is about subistitution
             sub_score = self.zs_add_scores(user_input, seq_sub)
-            if sub_score > 12:
+            # print(sub_score)
+            if sub_score > 19:
                 return self.get_substitute(user_input)
             else:
                 # if zero shot score isn't high enough, check to see if question is about temp, quantity or time
@@ -756,8 +594,10 @@ class RecipeBot():
                         zs_best = k
 
                 # if the best score is bigger than 10, then answer the question
+                # print(zs_best)
+                # print(zs_scores[zs_best])
                 if zs_scores[zs_best] > 10:
-                    print(zs_best)
+                    # print(zs_best)
                     ans = goal6(self.zero_shot_pipe, self.depgram, user_input, self.ingredients,  self.steps_data[self.curr_step + 1], zs_best)
                     if ans == None:
                         return self.default("confused")
@@ -771,7 +611,10 @@ class RecipeBot():
                 else:
                     if determineVague.is3(self.depgram, user_input):
                         phrase = doQuestion3.doQ3(self.zero_shot_pipe, self.depgram, user_input, self.steps_data[self.curr_step + 1])
-                        self.get_url("How do I " + phrase)
+                        if phrase == None:
+                            return self.default("confused")
+                        else:
+                            self.get_url("How do I " + phrase)
                     else:
                         self.get_url(user_input)
 
@@ -829,12 +672,12 @@ class RecipeBot():
     # returns list of substitutes
     def get_substitute(self, query:str):
         query = re.sub("[.,;!]", "", query)
-        chrome_options = Options()
-        chrome_options.add_argument("--headless")
-        driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
+        # chrome_options = Options()
+        # chrome_options.add_argument("--headless")
+        # driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=chrome_options)
         url = "http://www.google.com/search?q=" + query + "&start=" + str((0))
-        driver.get(url)
-        query_html = BeautifulSoup(driver.page_source, 'html.parser')
+        self.driver.get(url)
+        query_html = BeautifulSoup(self.driver.page_source, 'html.parser')
         results = query_html.find('div', id="search")
         results = results.find('div', class_="v7W49e")
         results = results.find('div', class_="MjjYud")

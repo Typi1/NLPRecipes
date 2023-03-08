@@ -1,5 +1,3 @@
-import stanza as st
-
 def getFirstTypeBroad(children:list, typ: str):
     res = None
     for branch in children:

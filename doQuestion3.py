@@ -1,9 +1,4 @@
-# import stanza as st
-# import transformers as tra
-# import re
 import steps_parser 
-
-
 
 # returns the id, text, and type of the head word of the given dependency dict (in depNode form)
 def getHeadWord(input_deps:dict):
@@ -24,7 +19,7 @@ def doQ3(pipe2, depgram, user_input:str, step:steps_parser.Step):
         base_action = step.root_action
 
     if base_action == None:
-        return "Sorry, could you rephrase that?"
+        return None
 
     # look through the actions of the step and get a similarity ranking of the action verb while adding the phrase to a list
     viable_action_phrases = []
@@ -39,7 +34,7 @@ def doQ3(pipe2, depgram, user_input:str, step:steps_parser.Step):
 
     # now if viable_action_phrases is empty, then we can't do anything so error
     if len(viable_action_phrases) == 0:
-        return "Sorry, could you rephrase that?"
+        return None
     
     # if we got some action phrases, sort them by most fitting based on the zero shot
     viable_action_phrases.sort(key=lambda x: x[0], reverse=True)

@@ -1,14 +1,6 @@
-import stanza as st
-import numpy as np
-import re as re
-from typing import Optional
-import transformers as tra
 from enum import Enum
-from difflib import SequenceMatcher as sm
-
-# pipe2 = tra.pipeline(task="zero-shot-classification", model="facebook/bart-large-mnli")
-# st.download('en')
-# depgram = st.Pipeline('en')#, processors='tokenize,mwt,pos,lemma,depparse,ner')
+from typing import Optional
+import stanza as st
 
 ingredient_labels = ["ingredient", "slices", "chunks", "quantity"]
 tool_labels = ["appliance", "cooking utensil", "container", "bowl", "pan", "board", "measuring tool", "knife", "strainer", "colinder", "spatula"]
@@ -638,26 +630,4 @@ def doParsing(pipe2, depgram, test_phrase:str, ingredient_list:list):
 
     return steps
 # (ROOT (S (VP (VB Divide) (NP (DT the) (NN batter)) (PP (IN between) (NP (DT the) (VBN prepared) (NNS pans)))) (. .)))
-
-
-
-def main():
-    test_text = ""
-    # test_text = "Blend the sweet strawberry cream in the blender with cinnamon."
-    # test_text = "After preparing 20 pounds of batter, insert it into a lovely pan."
-    # test_text = "In a medium bowl, evenly whisk the confectioners' sugar with the lemon zest, lemon juice, butter and salt until smooth. Drizzle the glaze over the top of the cake, letting it drip down the sides. Let stand for 20 minutes until the glaze is set. Cut the cake into wedges and serve."
-    # test_text = "Here's a list: eggs, flour, sugar, oil, cinnamon, and baking powder. Place the icing and batter in the fridge. Close your fridge, mouth or lips, and eyes and wait 50 hours. Try cakes or cookies."
-    # test_text = "Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices."
-    test_text = "Prep the strawberries: Cut the stems away from the strawberries and discard. Cut the strawberries in half, and then in either quarters or thick slices. Macerate the strawberries with sugar: Put the cut strawberries into a large bowl and sprinkle with sugar. Start with 1/4 cup of sugar and then add up to another 1/4 cup depending on how sweet your strawberries are. Gently stir the strawberries until they are all coated with some sugar. Let sit at room temperature for about 20 minutes, until the berries soften and begin to release their juices. Mash some of the strawberries: After 20 minutes or so, mash about a quarter of the berries in the bowl with a potato masher and stir to mix. You don't want to mash all the berries, just enough of them for their juices. Let sit while you bake the biscuits. Bake the biscuits: Use the recipe below to bake the biscuits. Make the whipped cream: While the biscuits are baking, whip the cream using an electric mixer, adding a drop or two of vanilla and 2 teaspoons of powdered sugar. Cover with plastic and place in the refrigerator to chill until ready to serve. To serve, break up one biscuit per person into big pieces into a bowl. Ladle strawberries over the biscuit. Add a dollop of whipped cream."
-    # test_text = "After 20 minutes or so, mash about a quarter of the berries in the bowl with a potato masher and stir to mix."
-    # test_text = "remove the milk from the batter, the dough, and the glaze using a strainer."
-    ingredient_list = ["confectioner's sugar", "lemon zest", "lemon juice", "butter", "salt", "glaze"]
-    # steps = doParsing(test_text, ingredient_list)
-
-    # for x in steps.keys():
-    #     print(steps[x])
-    
-
-if __name__ == '__main__':
-    main()
 

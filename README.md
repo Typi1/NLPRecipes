@@ -9,12 +9,12 @@ By:
 MealMaster is a simple conversational assistant that helps you while cooking a recipe. Here are the following ways MealMaster can help you:
 
 1. Can print out the ingredient list when asked
-2. Can read the recipe steps (can respond to commands such as "Show me the next step", "Show me the previous step", and "Take me to the <number>th step")
-3. Can answer "how to" questions ("How do I <specific technique>?")
+2. Can read the recipe steps (can respond to commands such as "Show me the next step", "Show me the previous step", and "Take me to the *insert number* th step")
+3. Can answer "how to" questions ("How do I *insert specific technique*?")
 4. Can answer vague "how to" questions ("How do I do that?")
-5. Can answer simple "what is" questions ("What is a <tool being mentioned>?")
-6. Can answer questions about the parameters of the current step ("How much of <ingredient> do I need?", "What temperature?", "How long do I <specific technique>?", "When is it done?")
-7. Can answer ingredient substitution questions ("What can I substitute for <ingredient>?")
+5. Can answer simple "what is" questions ("What is a *insert tool being mentioned*?")
+6. Can answer questions about the parameters of the current step ("How much of *insert ingredient* do I need?", "What temperature?", "How long do I *insert specific technique*?", "When is it done?")
+7. Can answer ingredient substitution questions ("What can I substitute for *insert ingredient*?")
 
 ## 2) How it's able to do what it does
 
